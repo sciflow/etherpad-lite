@@ -25,6 +25,7 @@ var os = require("os");
 var socketio = require('socket.io');
 var fs = require('fs');
 var settings = require('./utils/Settings');
+var plugins = require('./utils/Plugins');
 var db = require('./db/DB');
 var async = require('async');
 var express = require('express');

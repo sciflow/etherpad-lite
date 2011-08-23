@@ -1,0 +1,14 @@
+#editbarinner .dijitToggleButton,
+#editbarinner .dijitButton,
+#editbarinner .dijitDropDownButton,
+#editbarinner .dijitComboButton {
+  margin: 0;
+}
+
+.claro .dijitButton .dijitButtonNode,
+.claro .dijitDropDownButton .dijitButtonNode,
+.claro .dijitComboButton .dijitButtonNode,
+.claro .dijitToggleButton .dijitButtonNode {
+  background-image: none;
+  background-color: #ffffff;
+}
