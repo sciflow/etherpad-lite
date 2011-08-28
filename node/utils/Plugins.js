@@ -22,11 +22,6 @@
 
 var fs = require('fs');
 
-/**
- * An array holding the plugin settings for every plugin indexed by the plugin name.
- */
-//exports.plugins = [];
-
 // Traverse the plugin directory to get all plugin names (dirs). 
 var pluginDirectories = fs.readdirSync('../plugins/').filter(function(element) {
     return fs.statSync('../plugins/' + element).isDirectory();
