@@ -49,5 +49,3 @@ pluginNames.forEach(function(element) {
     process.exit(1);
   }
 });
-
-console.log(exports['headings'].isEnabled);
