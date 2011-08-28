@@ -30,15 +30,15 @@ var pluginDirectories = fs.readdirSync('../plugins/').filter(function(element) {
 // TODO: Maybe one should take the plugin names out of the json files.
 var pluginNames = pluginDirectories;
 
-
 // Read the pluginSettings.json for every plugin and store the settings in the plugins array
 pluginNames.forEach(function(element) {
 
   // Read the pluginSettings.json for every plugin and remove all comments
   var pluginSettingsString = fs.readFileSync('../plugins/' + element + '/pluginSettings.json').toString();
   pluginSettingsString = pluginSettingsString.replace(/\*([^*]|[\r\n]|(\*+([^*/]|[\r\n])))*\*+/gm,"").replace(/#.*/g,"").replace(/\/\/.*/g,"");
-  
+
   // Parse json and store the result in the plugins arrays
+  /*
   try {
     exports[element] = JSON.parse(pluginSettingsString);
   }
@@ -47,5 +47,28 @@ pluginNames.forEach(function(element) {
     console.error("There is a syntax error in your settings.json file");
     console.error(e.message);
     process.exit(1);
+  }
+  */
+
+  exports[element] = {};
+
+  // Try to load the server hooks for the current plugin.
+  try {
+    exports[element].serverHooks = require('../../plugins/' + element + '/serverHooks.js');
+  }
+  catch(e)
+  {
+    console.error("The file 'serverHooks.js' of the plugin " + element + " could not be loaded!");
+    console.error(e.message);
+  }
+
+  // Try to load the client hooks for the current plugin.
+  try {
+    exports[element].clientHooks = require('../../plugins/' + element + '/clientHooks.js');
+  }
+  catch(e)
+  {
+    console.error("The file 'clientHooks.js' of the plugin " + element + " could not be loaded!");
+    console.error(e.message);
   }
 });
