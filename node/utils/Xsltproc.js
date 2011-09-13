@@ -25,6 +25,7 @@ var settings = require("./Settings");
 var os = require('os');
 
 var doConvertTask;
+var stdoutBuffer = '';
 
 doConvertTask = function(task, callback)
 {
