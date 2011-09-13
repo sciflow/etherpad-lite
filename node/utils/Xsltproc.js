@@ -23,6 +23,7 @@ var spawn = require('child_process').spawn;
 var async = require("async");
 var settings = require("./Settings");
 var os = require('os');
+var fs = require('fs');
 
 var doConvertTask;
 var stdoutBuffer = '';
