@@ -67,10 +67,11 @@ doConvertTask = function(task, callback)
         if(err) {
           sys.puts(err);
         }
+        callback();
       }); 
     }
 
-    callback();
+    //callback();
   });
 }
   
