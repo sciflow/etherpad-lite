@@ -1,0 +1,7 @@
+/* This file must be valid JSON. But comments are allowed */
+{
+  "name": "Test Plugin",
+  "description" : "Plugin which which demonstrates the usage of plugins in Etherpad-lite",
+  "version" : "0.0.1",
+  "isEnabled" : false
+}

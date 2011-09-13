@@ -1,0 +1,25 @@
+/*
+import("etherpad.log");
+import("dispatch.{Dispatcher,PrefixMatcher,forward}");
+import("plugins.testplugin.controllers.testplugin");
+*/
+
+exports.install = function() {
+  //log.info("Installing testplugin");
+}
+
+exports.uninstall = function() {
+  //log.info("Uninstalling testplugin");
+}
+
+exports.serverStartup = function()  {
+  //log.info("Server startup for testplugin");
+}
+
+exports.serverShutdown = function() {
+  //log.info("Server shutdown for testplugin");
+}
+
+exports.handlePath = function() {
+  //return [[PrefixMatcher('/ep/testplugin/'), forward(testplugin)]];
+}
