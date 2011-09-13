@@ -63,7 +63,7 @@ doConvertTask = function(task, callback)
     {
       console.log(stdoutBuffer);
 
-      fs.writeFile('/tmp/' + task.destFile, stdoutBuffer, function(err) {
+      fs.writeFile(task.destFile, stdoutBuffer, function(err) {
         if(err) {
           sys.puts(err);
         }
