@@ -24,6 +24,7 @@ var async = require("async");
 var fs = require("fs");
 var settings = require('../utils/Settings');
 var os = require('os');
+var xsltproc = require("../utils/Xsltproc");
 
 var tempDirectory = "/tmp";
 
@@ -73,14 +74,14 @@ exports.doExport = function(req, res, padId, type)
         html = null;
       
         destFile = tempDirectory + "/eplite_export_" + randNum + "." + type;
-        //abiword.convertFile(srcFile, destFile, type, callback);
-	callback();
+        xsltproc.convertFile(srcFile, destFile, type, callback);
+	//callback();
       },
       //send the file
       function(callback)
       {
         //res.sendfile(destFile, null, callback);
-        res.sendfile(srcFile, null, callback);
+        res.sendfile(destFile, null, callback);
       },
       //clean up temporary files
       function(callback)
