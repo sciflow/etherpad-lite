@@ -54,7 +54,7 @@ exports.doExport = function(req, res, padId, type)
       //render the html document
       function(callback)
       {
-        exporthtml.getPadHTMLDocument(padId, null, false, function(err, _html)
+        exporthtml.getPadHTMLDocument(padId, null, true, function(err, _html)
         {
           html = _html;
           callback(err);
