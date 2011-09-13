@@ -24,6 +24,7 @@ var async = require("async");
 var settings = require("./Settings");
 var os = require('os');
 var fs = require('fs');
+var sys = require('sys');
 
 var doConvertTask;
 var stdoutBuffer = '';
