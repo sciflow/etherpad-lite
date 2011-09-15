@@ -191,11 +191,89 @@ exports.handleMessage = function(client, message)
   {
     handleSuggestUserName(client, message);
   }
+  else if(message.type == "DATASTORE_REQUEST")
+  {
+    handleDatastoreRequest(client, message);
+  }
   //if the message type is unkown, throw an exception
   else
   {
     messageLogger.warn("Droped message, unkown Message Type " + message.type);
   }
+}
+
+function handleDatastoreRequest(client, msg)
+{
+  /*
+     The semantic of the datastore operations is based on the interface
+     of the underlaying database abstraction layer (ueberDB). The datastore
+     ist stored in the DB in the following format
+ 
+     "key":"pad:" + padId + ":datastore:" + datastoreIdentifier + ":" + entryNumber",
+     "val":{entryMetaData:{isDeleted:false}, entryData:  ...some object which was added...}
+
+     Additionally, there is a record
+     "key":"pad:" + padId + ":datastore:" + datastoreIdentifier + ":HEAD"
+     "val": the greatest entry number for that datastore so far
+     
+     There are
+     the following allowed operations
+     * add(object) : entryNumber
+     * get() : array of all objects in the datastore
+     * get(entryNumber) : object with the corresponding entry number
+     * delete() : true or false if the action was succesfull
+     * delete(entryNumber) : true or false (see above)
+     
+     These operations will be mapped to corresponding datastore operations.
+
+     The concept of datastores is based on a scenario of multiple
+     plugins, which all want to store data in a pad. To distinguish
+     the data of multiple plugins, there are so called 'datastores'.
+
+     Datastores are just objects, bound to the padid which are used
+     to group data and create some kind of namespaces.
+  */
+
+  var padId = session2pad[client.id];
+  var pad;
+  var result;
+
+  async.series([
+    function(callback)
+    {
+      padManager.getPad(padId, function(err, _pad)
+      {
+        pad = _pad;
+        callback(err);
+      });
+    },
+    function(callback)
+    {
+      if(msg.data.requestedOperation === 'get')
+      {
+        pad.datastoreGet(msg.data.datastoreId, msg.data.parameter.recordId, function(err, _result)
+        {
+          result = _result;
+          callback(err);
+        });
+      }
+      else if (requestedOperation === 'add')
+      {
+        //
+      }
+      else if (requestedOperation === 'delete')
+      {
+        //
+      }
+      else
+      {
+        callback();
+      }
+    }
+  ], function(err)
+  {
+    if(err) throw err;
+  });
 }
 
 /**

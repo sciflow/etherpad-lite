@@ -72,7 +72,56 @@ Class('Pad', {
             'id' : id,
         }
     },
-    
+
+    //TODO: It would be even nicer if the datastore operations would be grouped like Pad.datastore.get() ...
+    datastoreGet : function(datastoreId, recordId, callback)
+    {
+      var _this = this;
+
+      // if no recordId is given, return an array containing all datastore entries
+      if(typeof(recordId) === 'undefined' || recordId === null)
+      {
+        //get ALL datastore entrys
+        db.get("pad:" + _this.id + ":datastore:" + datastoreId + ":" + "HEAD", function(err, result)
+        {
+          var recordCount = parseInt(result);
+          var records = [];
+
+          for(var i = 0;i < recordCount+1; i++)
+          {
+            records.push(i);
+          }
+
+          async.forEach(records, function(recordId, callback)
+          {
+            db.get("pad:" + _this.id + ":datastore:" + datastoreId + ":" + recordId, function(err, result)
+            {
+              records[recordId] = result;
+              callback(err);
+            });
+          }, function(err)
+          {
+            callback(err, records);
+          }); 
+        });    
+      }
+      // if a recordId is given, return only that single record
+      else
+      {
+        db.get("pad:" + _this.id + ":datastore:" + datastoreId + ":" + recordId, callback);
+      }
+    },
+
+    datastoreAdd : function()
+    {
+
+    },
+
+    datastoreDelete : function()
+    {
+
+    },
+
     appendRevision : function(aChangeset, author) 
     {
       if(!author)
