@@ -827,9 +827,12 @@ function handleClientReady(client, message)
       {
         clientVars.userName = authorName;
       }
-      
+     
+      // put the client vars in a message
+
+
       //Send the clientVars to the Client
-      client.json.send(clientVars);
+      client.json.send({type: "CLIENT_VARS", data: clientVars});
       
       //Save the revision and the author id in sessioninfos
       sessioninfos[client.id].rev = pad.getHeadRevisionNumber();

@@ -191,85 +191,90 @@ function handshake()
   var receivedClientVars = false;
   var initalized = false;
 
-  socket.on('message', function(obj)
+  socket.on('message', function(msg)
   {
-    //the access was not granted, give the user a message
-    if(!receivedClientVars && obj.accessStatus)
-    {
-      if(obj.accessStatus == "deny")
-      {
-        $("#editorloadingbox").html("<b>You do not have permission to access this pad</b>");
-      }
-      else if(obj.accessStatus == "needPassword")
-      {
-        $("#editorloadingbox").html("<b>You need a password to access this pad</b><br>" +
-                                    "<input id='passwordinput' type='password' name='password'>"+
-                                    "<button type='button' onclick='savePassword()'>ok</button>");
-      }
-      else if(obj.accessStatus == "wrongPassword")
-      {
-        $("#editorloadingbox").html("<b>You're password was wrong</b><br>" +
-                                    "<input id='passwordinput' type='password' name='password'>"+
-                                    "<button type='button' onclick='savePassword()'>ok</button>");
-      }
-    }
-    
-    //if we haven't recieved the clientVars yet, then this message should it be
-    else if (!receivedClientVars)
-    {
-      //log the message
-      if (window.console) console.log(obj);
+    if(msg.type == "CLIENT_VARS") {
 
-      receivedClientVars = true;
+      obj = msg.data;
 
-      //set some client vars
-      clientVars = obj;
-      clientVars.userAgent = "Anonymous";
-      clientVars.collab_client_vars.clientAgent = "Anonymous";
-
-      // TODO:msievers: Using eval to convert the stringified functions back to functions will likely fail on IE, where you have to use execScript for this.
-
-      //eval the hook functions, which were converted to strings before sending them via JSON
-      if(clientVars.hooks !== undefined) {
-        for(i in clientVars.hooks)
-          for(j in clientVars.hooks[i])
-            eval("clientVars.hooks['" + i.toString() + "'][" + j.toString() + "].hookFunction = " + clientVars.hooks[i][j].hookFunction);}
-
-      //initalize the pad
-      pad.init();
-      initalized = true;
-
-      // If the LineNumbersDisabled value is set to true then we need to hide the Line Numbers
-      if (LineNumbersDisabled == true)
+      //the access was not granted, give the user a message
+      if(!receivedClientVars && obj.accessStatus)
       {
-        pad.changeViewOption('showLineNumbers', false);
+        if(obj.accessStatus == "deny")
+        {
+          $("#editorloadingbox").html("<b>You do not have permission to access this pad</b>");
+        }
+        else if(obj.accessStatus == "needPassword")
+        {
+          $("#editorloadingbox").html("<b>You need a password to access this pad</b><br>" +
+                                      "<input id='passwordinput' type='password' name='password'>"+
+                                      "<button type='button' onclick='savePassword()'>ok</button>");
+        }
+        else if(obj.accessStatus == "wrongPassword")
+        {
+          $("#editorloadingbox").html("<b>You're password was wrong</b><br>" +
+                                      "<input id='passwordinput' type='password' name='password'>"+
+                                      "<button type='button' onclick='savePassword()'>ok</button>");
+        }
       }
-      // If the Monospacefont value is set to true then change it to monospace.
-      if (useMonospaceFontGlobal == true)
+      
+      //if we haven't recieved the clientVars yet, then this message should it be
+      else if (!receivedClientVars)
       {
-        pad.changeViewOption('useMonospaceFont', true);
+        //log the message
+        if (window.console) console.log(obj);
+
+        receivedClientVars = true;
+
+        //set some client vars
+        clientVars = obj;
+        clientVars.userAgent = "Anonymous";
+        clientVars.collab_client_vars.clientAgent = "Anonymous";
+
+        // TODO:msievers: Using eval to convert the stringified functions back to functions will likely fail on IE, where you have to use execScript for this.
+
+        //eval the hook functions, which were converted to strings before sending them via JSON
+        if(clientVars.hooks !== undefined) {
+          for(i in clientVars.hooks)
+            for(j in clientVars.hooks[i])
+              eval("clientVars.hooks['" + i.toString() + "'][" + j.toString() + "].hookFunction = " + clientVars.hooks[i][j].hookFunction);}
+
+        //initalize the pad
+        pad.init();
+        initalized = true;
+
+        // If the LineNumbersDisabled value is set to true then we need to hide the Line Numbers
+        if (LineNumbersDisabled == true)
+        {
+          pad.changeViewOption('showLineNumbers', false);
+        }
+        // If the Monospacefont value is set to true then change it to monospace.
+        if (useMonospaceFontGlobal == true)
+        {
+          pad.changeViewOption('useMonospaceFont', true);
+        }
+        // if the globalUserName value is set we need to tell the server and the client about the new authorname
+        if (globalUserName !== false)
+        {
+          pad.notifyChangeName(globalUserName); // Notifies the server
+          pad.myUserInfo.name = globalUserName;
+          $('#myusernameedit').attr({"value":globalUserName}); // Updates the current users UI
+        }
       }
-      // if the globalUserName value is set we need to tell the server and the client about the new authorname
-      if (globalUserName !== false)
-      {
-        pad.notifyChangeName(globalUserName); // Notifies the server
-	pad.myUserInfo.name = globalUserName;
-        $('#myusernameedit').attr({"value":globalUserName}); // Updates the current users UI
-      }
-    }
-    //This handles every Message after the clientVars
-    else
-    {
-      //this message advices the client to disconnect
-      if (obj.disconnect)
-      {
-        padconnectionstatus.disconnected(obj.disconnect);
-        socket.disconnect();
-        return;
-      }
+      //This handles every Message after the clientVars
       else
       {
-        pad.collabClient.handleMessageFromServer(obj);
+        //this message advices the client to disconnect
+        if (obj.disconnect)
+        {
+          padconnectionstatus.disconnected(obj.disconnect);
+          socket.disconnect();
+          return;
+        }
+        else
+        {
+          pad.collabClient.handleMessageFromServer(obj);
+        }
       }
     }
   });
