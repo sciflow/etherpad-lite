@@ -257,13 +257,30 @@ function handleDatastoreRequest(client, msg)
           callback(err);
         });
       }
-      else if (requestedOperation === 'add')
+      else if (msg.data.requestedOperation === 'add')
       {
-        //
+        pad.datastoreAdd(msg.data.datastoreId, msg.data.parameter.objectToStore, function(recordIdOfAddedObject)
+        {
+          // if there was no error, the callback function is called with a recordId >= 0
+          if(recordIdOfAddedObject >= 0)
+          {
+            result = recordIdOfAddedObject;
+            callback();
+          }
+          // if this recordId is < 0, than there was an error
+          else
+          {
+            var err = recordIdOfAddedObject;
+            callback(err);
+          }
+        });
       }
-      else if (requestedOperation === 'delete')
+      else if (msg.data.requestedOperation === 'delete')
       {
-        //
+        pad.datastoreDelete(msg.data.datastoreId, msg.data.parameter.recordId, function(err)
+        {
+          callback(err);
+        });
       }
       else
       {
