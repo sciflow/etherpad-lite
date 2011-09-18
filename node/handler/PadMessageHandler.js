@@ -281,6 +281,15 @@ function handleDatastoreRequest(client, msg)
   ], function(err)
   {
     if(err) throw err;
+
+    var response = {
+      type: 'DATASTORE',
+      data: {
+        result: result
+      }
+    };
+
+    client.json.send(response);
   });
 }
 
