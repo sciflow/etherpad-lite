@@ -157,19 +157,19 @@ Class('Pad', {
       }
     },
 
-    datastoreDelete : function(datastoreId, recordId, callback)
+    datastoreRemove : function(datastoreId, recordId, callback)
     {
       var _this = this;
 
-      // if a recordId is given, delete only that single record
+      // if a recordId is given, remove only that single record
       if(typeof(recordId) !== 'undefined' && recordId !== null)
       {
         db.remove("pad:" + _this.id + ":datastore:" + datastoreId + ":" + recordId, callback);
       }
-      // if no recordId is given, delete all entries of the datastore and the head counter
+      // if no recordId is given, remove all entries of the datastore and the head counter
       else
       {
-        // we need to know the head counter in order to delete all entries with recordId <= headCounter
+        // we need to know the head counter in order to remove all entries with recordId <= headCounter
         db.get("pad:" + _this.id + ":datastore:" + datastoreId + ":" + "HEAD", function(err, headCounter)
         {
           var recordCount = parseInt(headCounter);
@@ -187,7 +187,7 @@ Class('Pad', {
             forEachCallback(err);
           }, function(err)
           {
-            // last but not least (if there was no error) delete the head counter
+            // last but not least (if there was no error) remove the head counter
             if(!err) db.remove("pad:" + _this.id + ":datastore:" + datastoreId + ":" + "HEAD");
             callback(null, null);
           });

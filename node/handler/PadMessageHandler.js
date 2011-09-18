@@ -265,11 +265,11 @@ function handleDatastoreRequest(client, msg)
           callback(err);
         });
       }
-      else if (msg.requestedOperation === 'delete')
+      else if (msg.requestedOperation === 'remove')
       {
-        pad.datastoreDelete(msg.datastoreId, msg.parameter.recordId, function(err, deleteResult)
+        pad.datastoreRemove(msg.datastoreId, msg.parameter.recordId, function(err, removeResult)
         {
-          result = deleteResult;
+          result = removeResult;
           callback(err);
         });
       }
