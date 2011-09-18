@@ -266,17 +266,6 @@ function handleDatastoreRequest(client, msg)
     }
   }
   
-  /*
-  if(msg.requestedOperation === 'get' || msg.requestedOperation === 'remove')
-  {
-    if(typeof(msg.parameter.recordId) === 'undefined' || msg.parameter.recordId === null)
-    {
-      messageLogger.warn('Datastore: recordId is not set!');
-      return;
-    }
-  }
-  */
-
   // everything should be fine, so we can process the message now
   async.series([
     function(callback)
