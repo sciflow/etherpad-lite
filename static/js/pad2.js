@@ -163,12 +163,12 @@ function sendMessageToServer(messageType, messageData)
       resource: resource
     });
     
-    socket.once('connect', sendMessage());
+    socket.once('connect', sendMessage);
   }
   else if (socket.socket.connected === false)
   {
     socket.socket.connect();
-    socket.once('connect', sendMessage());
+    socket.once('connect', sendMessage);
   }
   else
   {
