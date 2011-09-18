@@ -193,7 +193,7 @@ exports.handleMessage = function(client, message)
   }
   else if(message.type == "DATASTORE")
   {
-    handleDatastoreRequest(client, message);
+    handleDatastoreRequest(client, message.data);
   }
   //if the message type is unkown, throw an exception
   else
@@ -249,17 +249,17 @@ function handleDatastoreRequest(client, msg)
     },
     function(callback)
     {
-      if(msg.data.requestedOperation === 'get')
+      if(msg.requestedOperation === 'get')
       {
-        pad.datastoreGet(msg.data.datastoreId, msg.data.parameter.recordId, function(err, _result)
+        pad.datastoreGet(msg.datastoreId, msg.parameter.recordId, function(err, _result)
         {
           result = _result;
           callback(err);
         });
       }
-      else if (msg.data.requestedOperation === 'add')
+      else if (msg.requestedOperation === 'add')
       {
-        pad.datastoreAdd(msg.data.datastoreId, msg.data.parameter.objectToStore, function(recordIdOfAddedObject)
+        pad.datastoreAdd(msg.datastoreId, msg.parameter.objectToStore, function(recordIdOfAddedObject)
         {
           // if there was no error, the callback function is called with a recordId >= 0
           if(recordIdOfAddedObject >= 0)
@@ -275,9 +275,9 @@ function handleDatastoreRequest(client, msg)
           }
         });
       }
-      else if (msg.data.requestedOperation === 'delete')
+      else if (msg.requestedOperation === 'delete')
       {
-        pad.datastoreDelete(msg.data.datastoreId, msg.data.parameter.recordId, function(err)
+        pad.datastoreDelete(msg.datastoreId, msg.parameter.recordId, function(err)
         {
           callback(err);
         });
