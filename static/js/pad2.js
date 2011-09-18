@@ -261,21 +261,24 @@ function handshake()
           $('#myusernameedit').attr({"value":globalUserName}); // Updates the current users UI
         }
       }
-      //This handles every Message after the clientVars
-      else
-      {
-        //this message advices the client to disconnect
-        if (obj.disconnect)
-        {
-          padconnectionstatus.disconnected(obj.disconnect);
-          socket.disconnect();
-          return;
-        }
-        else
-        {
-          pad.collabClient.handleMessageFromServer(obj);
-        }
-      }
+    }
+    // remove that message handler once the clientVars have been transfered
+    socket.removeListener('message', arguments.callee);
+  });
+
+  //This handles every Message after the clientVars
+  socket.on('message', function(msg)
+  {
+    //this message advices the client to disconnect
+    if (msg.disconnect)
+    {
+      padconnectionstatus.disconnected(msg.disconnect);
+      socket.disconnect();
+      return;
+    }
+    else
+    {
+      pad.collabClient.handleMessageFromServer(msg);
     }
   });
 
