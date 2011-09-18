@@ -276,9 +276,13 @@ function handshake()
       socket.disconnect();
       return;
     }
-    else
+    else if(msg.type === 'COLLABROOM')
     {
       pad.collabClient.handleMessageFromServer(msg);
+    }
+    else if(msg.type === 'DATASTORE')
+    {
+      pad.datastore.handleMessageFromServer(msg);
     }
   });
 
@@ -315,7 +319,7 @@ var pad = {
       //
     },
 
-    handleDatastoreServerMessage: function(msg)
+    handleServerMessage: function(msg)
     {
       //
     },
