@@ -145,6 +145,69 @@ function savePassword()
   document.location=document.location;
 }
 
+// taken heavy from handshake(), maybe one could generalize this thing
+function sendMessageToServer(messageType, messageData)
+{
+  // check if there is allready a connected socket
+  if(typeof(socket) === 'undefined')
+  {
+    var loc = document.location;
+    //get the correct port
+    var port = loc.port == "" ? (loc.protocol == "https:" ? 443 : 80) : loc.port;
+    //create the url
+    var url = loc.protocol + "//" + loc.hostname + ":" + port + "/";
+    //find out in which subfolder we are
+    var resource = loc.pathname.substr(1, loc.pathname.indexOf("/p/")) + "socket.io";
+    //connect
+    socket = io.connect(url, {
+      resource: resource
+    });
+    
+    socket.once('connect', sendMessage());
+  }
+  else if (socket.socket.connected === false)
+  {
+    socket.socket.connect();
+    socket.once('connect', sendMessage());
+  }
+  else
+  {
+    sendMessage();
+  }
+
+  // the actual sending of the message, outsourced to a nested function so we dont have to duplicate code in the if...else
+  function sendMessage()
+  {
+    var padId = document.location.pathname.substring(document.location.pathname.lastIndexOf("/") + 1);
+    padId = unescape(padId); // unescape neccesary due to Safari and Opera interpretation of spaces
+
+    var token = readCookie("token");
+    if (token == null)
+    {
+      token = randomString();
+      createCookie("token", token, 60);
+    }
+
+    var sessionID = readCookie("sessionID");
+    var password = readCookie("password");
+
+    // construct the message to be send
+    var message = {
+      "component": "pad",
+      "type": messageType,
+      "padId": padId,
+      "sessionID": sessionID,
+      "password": password,
+      "token": token,
+      "protocolVersion": 2,
+      "data": messageData
+    };
+
+    socket.json.send(message);
+  };
+
+}
+
 function handshake()
 {
   var loc = document.location;
