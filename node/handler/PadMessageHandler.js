@@ -251,34 +251,25 @@ function handleDatastoreRequest(client, msg)
     {
       if(msg.requestedOperation === 'get')
       {
-        pad.datastoreGet(msg.datastoreId, msg.parameter.recordId, function(err, _result)
+        pad.datastoreGet(msg.datastoreId, msg.parameter.recordId, function(err, getResult)
         {
-          result = _result;
+          result = getResult;
           callback(err);
         });
       }
       else if (msg.requestedOperation === 'add')
       {
-        pad.datastoreAdd(msg.datastoreId, msg.parameter.objectToStore, function(recordIdOfAddedObject)
+        pad.datastoreAdd(msg.datastoreId, msg.parameter.objectToStore, function(err, addResult)
         {
-          // if there was no error, the callback function is called with a recordId >= 0
-          if(recordIdOfAddedObject >= 0)
-          {
-            result = recordIdOfAddedObject;
-            callback();
-          }
-          // if this recordId is < 0, than there was an error
-          else
-          {
-            var err = recordIdOfAddedObject;
-            callback(err);
-          }
+          result = addResult;
+          callback(err);
         });
       }
       else if (msg.requestedOperation === 'delete')
       {
-        pad.datastoreDelete(msg.datastoreId, msg.parameter.recordId, function(err)
+        pad.datastoreDelete(msg.datastoreId, msg.parameter.recordId, function(err, deleteResult)
         {
+          result = deleteResult;
           callback(err);
         });
       }

@@ -152,7 +152,7 @@ Class('Pad', {
           db.set("pad:" + _this.id + ":datastore:" + datastoreId + ":" + "HEAD", newHeadCounter);
 
           // return the new head counter after adding the record object
-          callback(newHeadCounter);
+          callback(null, newHeadCounter);
         });
       }
     },
@@ -189,7 +189,7 @@ Class('Pad', {
           {
             // last but not least (if there was no error) delete the head counter
             if(!err) db.remove("pad:" + _this.id + ":datastore:" + datastoreId + ":" + "HEAD");
-            callback(0);
+            callback(null, null);
           });
         });
       } 
