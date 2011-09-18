@@ -210,46 +210,12 @@ function sendMessageToServer(messageType, messageData)
 
 function handshake()
 {
-  var loc = document.location;
-  //get the correct port
-  var port = loc.port == "" ? (loc.protocol == "https:" ? 443 : 80) : loc.port;
-  //create the url
-  var url = loc.protocol + "//" + loc.hostname + ":" + port + "/";
-  //find out in which subfolder we are
-  var resource = loc.pathname.substr(1, loc.pathname.indexOf("/p/")) + "socket.io";
-  //connect
-  socket = io.connect(url, {
-    resource: resource
-  });
+  sendMessageToServer('CLIENT_READY');
 
-  socket.once('connect', function()
-  {
-    var padId = document.location.pathname.substring(document.location.pathname.lastIndexOf("/") + 1);
-    padId = unescape(padId); // unescape neccesary due to Safari and Opera interpretation of spaces
-
-    document.title = document.title + " | " + padId;
-
-    var token = readCookie("token");
-    if (token == null)
-    {
-      token = randomString();
-      createCookie("token", token, 60);
-    }
-    
-    var sessionID = readCookie("sessionID");
-    var password = readCookie("password");
-
-    var msg = {
-      "component": "pad",
-      "type": "CLIENT_READY",
-      "padId": padId,
-      "sessionID": sessionID,
-      "password": password,
-      "token": token,
-      "protocolVersion": 2
-    };
-    socket.json.send(msg);
-  });
+  // set the document title of the pad
+  var padId = document.location.pathname.substring(document.location.pathname.lastIndexOf("/") + 1);
+  padId = unescape(padId); // unescape neccesary due to Safari and Opera interpretation of spaces
+  document.title = document.title + " | " + padId;
 
   var receivedClientVars = false;
   var initalized = false;
