@@ -294,6 +294,32 @@ var pad = {
   preloadedImages: false,
   padOptions: {},
 
+  // here comes the datastore code
+  datastore: {
+
+    add: function(datastoreId, objectToStore)
+    {
+      //
+    },
+
+    get: function(datastoreId, recordId)
+    {
+      //
+    },
+
+    remove: function(datastoreId, recordId)
+    {
+      //
+    },
+
+    handleDatastoreServerMessage: function(msg)
+    {
+      //
+    },
+  
+  
+  },
+
   // these don't require init; clientVars should all go through here
   getPadId: function()
   {
