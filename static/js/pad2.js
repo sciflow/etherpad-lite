@@ -145,7 +145,7 @@ function savePassword()
   document.location=document.location;
 }
 
-// taken heavy from handshake(), maybe one could generalize this thing
+// taken heavily from the the original handshake()
 function sendMessageToServer(messageType, messageData)
 {
   // check if there is allready a connected socket
