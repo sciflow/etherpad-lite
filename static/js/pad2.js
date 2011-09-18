@@ -382,7 +382,7 @@ var pad = {
       //
     },
 
-    handleServerMessage: function(msg)
+    handleMessageFromServer: function(msg)
     {
       //
     },
