@@ -191,7 +191,7 @@ exports.handleMessage = function(client, message)
   {
     handleSuggestUserName(client, message);
   }
-  else if(message.type == "DATASTORE_REQUEST")
+  else if(message.type == "DATASTORE")
   {
     handleDatastoreRequest(client, message);
   }
