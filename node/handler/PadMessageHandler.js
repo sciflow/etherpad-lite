@@ -238,6 +238,46 @@ function handleDatastoreRequest(client, msg)
   var pad;
   var result;
 
+  // first check if the message conforms to what we expect
+  if(msg.requestedOperation !== 'get' && msg.requestedOperation !== 'add' && msg.requestedOperation !== 'remove')
+  {
+    messageLogger.warn('Datastore: requestedOperation is neither add, get nor remove!');
+    return;
+  }
+
+  if(typeof(msg.datastoreId) === 'undefined' || msg.datastoreId === null)
+  {
+    messageLogger.warn('Datastore: datastoreId is not set!');
+    return;
+  }
+
+  if(typeof(msg.parameter) === 'undefined' || msg.parameter === null)
+  {
+    messageLogger.warn('Datastore: parameter object is not set!');
+    return;
+  }
+
+  if(msg.requestedOperation === 'add')
+  {
+    if(typeof(msg.parameter.objectToStore) === 'undefined' || msg.parameter.objectToStore === null)
+    {
+      messageLogger.warn('Datastore: add requested without objectToStore defined!');
+      return;
+    }
+  }
+  
+  /*
+  if(msg.requestedOperation === 'get' || msg.requestedOperation === 'remove')
+  {
+    if(typeof(msg.parameter.recordId) === 'undefined' || msg.parameter.recordId === null)
+    {
+      messageLogger.warn('Datastore: recordId is not set!');
+      return;
+    }
+  }
+  */
+
+  // everything should be fine, so we can process the message now
   async.series([
     function(callback)
     {
