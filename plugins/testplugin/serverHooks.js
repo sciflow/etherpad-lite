@@ -1,9 +1,3 @@
-/*
-import("etherpad.log");
-import("dispatch.{Dispatcher,PrefixMatcher,forward}");
-import("plugins.testplugin.controllers.testplugin");
-*/
-
 exports.install = function() {
   //log.info("Installing testplugin");
 }
