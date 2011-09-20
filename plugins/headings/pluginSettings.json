@@ -1,7 +1,0 @@
-/* This file must be valid JSON. But comments are allowed */
-{
-  "name": "Headings Plugin",
-  "description" : "Plugin which supports headings in Etherpad-lite",
-  "version" : "0.0.1",
-  "isEnabled" : true
-}
