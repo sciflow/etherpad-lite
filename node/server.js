@@ -39,7 +39,6 @@ var readOnlyManager;
 var padManager;
 var securityManager;
 var socketIORouter;
-var latexExportHandler;
 
 //try to get the git version
 var version = "";
@@ -87,7 +86,6 @@ async.waterfall([
     padManager = require('./db/PadManager');
     securityManager = require('./db/SecurityManager');
     socketIORouter = require("./handler/SocketIORouter");
-    latexExportHandler = require("./handler/LatexExportHandler");
     
     //install logging      
     var httpLogger = log4js.getLogger("http");
@@ -260,33 +258,6 @@ async.waterfall([
       hasPadAccess(req, res, function()
       {
         exportHandler.doExport(req, res, req.params.pad, req.params.type);
-      });
-    });
-
-    //serve the LaTeX (and compiled LaTeX files, e.g. pdf)
-    app.get('/p/:pad/latexExport/:type', function(req, res, next)
-    {
-      //ensure the padname is valid and the url doesn't end with a /
-      if(!padManager.isValidPadId(req.params.pad) || /\/$/.test(req.url))
-      {
-        res.send('Such a padname is forbidden', 404);
-        return;
-      }
-
-      var types = ["tex", "pdf"];
-      //send a 404 if we don't support this filetype
-      if(types.indexOf(req.params.type) == -1)
-      {
-        next();
-        return;
-      }
-
-      res.header("Access-Control-Allow-Origin", "*");
-      res.header("Server", serverName);
-
-      hasPadAccess(req, res, function()
-      {
-        latexExportHandler.doExport(req, res, req.params.pad, req.params.type);
       });
     });
     
