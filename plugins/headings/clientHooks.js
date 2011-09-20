@@ -1,5 +1,5 @@
 //TODO: Find a better name for this
-exports.entryPoint(arg) {
+exports.entryPoint = function (arg) {
 
   var attributeName = null;
 
