@@ -294,7 +294,7 @@ function getHTMLFromAtext(pad, atext)
       if (whichList >= lists.length)
       {
         lists.push([line.listLevel, line.listTypeName]);
-        pieces.push('<ul><li>', lineContent || '<br />');
+        pieces.push('<ul><li>', lineContent || '<br>');
       }
       else if (whichList == -1)
       {
@@ -303,11 +303,11 @@ function getHTMLFromAtext(pad, atext)
           // non-blank line, end all lists
           pieces.push(new Array(lists.length + 1).join('</li></ul\n>'));
           lists.length = 0;
-          pieces.push(lineContent, '<br />');
+          pieces.push(lineContent, '<br>');
         }
         else
         {
-          pieces.push('<br /><br />');
+          pieces.push('<br><br>');
         }
       }
       else
@@ -317,12 +317,12 @@ function getHTMLFromAtext(pad, atext)
           pieces.push('</li></ul>');
           lists.length--;
         }
-        pieces.push('</li><li>', lineContent || '<br />');
+        pieces.push('</li><li>', lineContent || '<br>');
       }
     }
     else
     {
-      pieces.push(lineContent, '<br />');
+      pieces.push(lineContent, '<br>');
     }
   }
   pieces.push(new Array(lists.length + 1).join('</li></ul>'));
@@ -371,26 +371,6 @@ function _analyzeLine(text, aline, apool)
 
 exports.getPadHTMLDocument = function (padId, revNum, noDocType, callback)
 {
-  var doctype_xhtml1_transitional = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">';
-  
-  /*
-     In order to use other doctypes then xhtml1_transitional the resulting
-     html has to conform these specs, which is not the case right now.
-
-     You can use http://validator.w3.org/check to check the resulting file.
-
-  var doctype_xhtml1_strict = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">';
-  var doctype_xhtml1_frameset = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Frameset//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-frameset.dtd">';
-  var doctype_xhtml11 = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">';
-
-  */
-
-  // select the doctype you want to use for the exported xhtml files 
-  var doctype = doctype_xhtml1_transitional;
-
-  // select if you want the <?xml version="1.0" ?> tag (some old browsers might not like it)
-  var noXmlTag = false;
-
   padManager.getPad(padId, function (err, pad)
   {
     if (err)
@@ -399,7 +379,7 @@ exports.getPadHTMLDocument = function (padId, revNum, noDocType, callback)
       return;
     }
 
-    var head = (noXmlTag ? '' : '<?xml version="1.0" encoding="UTF-8" ?>\n') + (noDocType ? '' : doctype + '\n') + '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">\n' + (noDocType ? '' : '<head>\n' + '<title>' + padId + '</title>\n' + '<style type="text/css"> * { font-family: arial, sans-serif;\n' + 'font-size: 13px;\n' + 'line-height: 17px; }</style>\n' + '</head>\n') + '<body>';
+    var head = (noDocType ? '' : '<!doctype html>\n') + '<html lang="en">\n' + (noDocType ? '' : '<head>\n' + '<meta charset="utf-8">\n' + '<style> * { font-family: arial, sans-serif;\n' + 'font-size: 13px;\n' + 'line-height: 17px; }</style>\n' + '</head>\n') + '<body>';
 
     var foot = '</body>\n</html>\n';
 
