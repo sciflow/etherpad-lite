@@ -23,12 +23,12 @@ function getPadPlainText(pad, revNum)
   var atext = ((revNum !== undefined) ? pad.getInternalRevisionAText(revNum) : pad.atext());
   var textLines = atext.text.slice(0, -1).split('\n');
   var attribLines = Changeset.splitAttributionLines(atext.attribs, atext.text);
-  var apool = pad.pool();
+  var attributePool = pad.pool();
 
   var pieces = [];
   for (var i = 0; i < textLines.length; i++)
   {
-    var line = _analyzeLine(textLines[i], attribLines[i], apool);
+    var line = _analyzeLine(textLines[i], attribLines[i], attributePool);
     if (line.listLevel)
     {
       var numSpaces = line.listLevel * 2 - 1;
@@ -87,51 +87,69 @@ function getPadHTML(pad, revNum, callback)
 
 function getHTMLFromAtext(pad, atext)
 {
-  var apool = pad.apool();
+  var attributePool = pad.apool();
   var textLines = atext.text.slice(0, -1).split('\n');
   var attribLines = Changeset.splitAttributionLines(atext.attribs, atext.text);
 
-  var tags = ['h1', 'h2', 'strong', 'em', 'u', 's'];
-  var props = ['heading1', 'heading2', 'bold', 'italic', 'underline', 'strikethrough'];
-  var anumMap = {};
+  // build the attributes array which we will need through out the export
+  var attributes = [];
 
-  props.forEach(function (propName, i)
+  for(attribute in attributePool.attribToNum)
   {
-    var propTrueNum = apool.putAttrib([propName, true], true);
-    if (propTrueNum >= 0)
+    var attributeId = attributePool.attribToNum[attribute];
+    var attributeName = String(attribute).split(',')[0];
+    var attributeValue = String(attribute).split(',')[1]; 
+
+    attributes[attributeId] =
     {
-      anumMap[propTrueNum] = i;
+      name: attributeName,
+      value: attributeValue,
+      currentState: 'FALSE'
+    };
+  }
+
+  // for the attributes we want to appear in our output, add the corresponding html tags
+  attributeToHtmlTagMapping = {
+    bold:          { openTag: '<strong>', closeTag: '</strong>' },
+    italic:        { openTag: '<em>',     closeTag: '</em>'     },
+    underline:     { openTag: '<u>',      closeTag: '</u>'      },
+    strikethrough: { openTag: '<s>',      closeTag: '</s>'      },
+    heading1:      { openTag: '<h1>',     closeTag: '</h1>'     },
+    heading2:      { openTag: '<h2>',     closeTag: '</h2>'     },
+    heading3:      { openTag: '<h3>',     closeTag: '</h3>'     },
+    heading4:      { openTag: '<h4>',     closeTag: '</h4>'     },
+    heading5:      { openTag: '<h5>',     closeTag: '</h5>'     },
+    heading6:      { openTag: '<h6>',     closeTag: '</h6>'     },
+  };
+
+  for(attributeId in attributes)
+  {
+    attributes[attributeId].htmlOpenTag = null;
+    attributes[attributeId].htmlCloseTag = null;
+   
+
+    if(typeof(attributeToHtmlTagMapping[attributes[attributeId].name]) !== 'undefined') 
+    {
+      attributes[attributeId].htmlOpenTag = attributeToHtmlTagMapping[attributes[attributeId].name].openTag;
+      attributes[attributeId].htmlCloseTag = attributeToHtmlTagMapping[attributes[attributeId].name].closeTag;
     }
-  });
+    // we can put html tags around some more special attributes too
+    else if(attributes[attributeId].name === 'author')
+    {
+      attributes[attributeId].htmlOpenTag = '<span class="author-' + attributes[attributeId].value.replace(/\./g,'-') + '">';
+      attributes[attributeId].htmlCloseTag = '</span>';
+    }
+  }
 
   function getLineHTML(text, attribs)
   {
-    var propVals = [false, false, false];
-    var ENTER = 1;
-    var STAY = 2;
-    var LEAVE = 0;
-
     // Use order of tags (b/i/u) as order of nesting, for simplicity
     // and decent nesting.  For example,
     // <b>Just bold<b> <b><i>Bold and italics</i></b> <i>Just italics</i>
     // becomes
     // <b>Just bold <i>Bold and italics</i></b> <i>Just italics</i>
-    var taker = Changeset.stringIterator(text);
-    var assem = Changeset.stringAssembler();
-
-    function emitOpenTag(i)
-    {
-      assem.append('<');
-      assem.append(tags[i]);
-      assem.append('>');
-    }
-
-    function emitCloseTag(i)
-    {
-      assem.append('</');
-      assem.append(tags[i]);
-      assem.append('>');
-    }
+    var stringIterator = Changeset.stringIterator(text);
+    var stringAssembler = Changeset.stringAssembler();
 
     var urls = _findURLs(text);
 
@@ -144,106 +162,114 @@ function getHTMLFromAtext(pad, atext)
         return;
       }
 
-      var iter = Changeset.opIterator(Changeset.subattribution(attribs, idx, idx + numChars));
+      var operationIterator = Changeset.opIterator(Changeset.subattribution(attribs, idx, idx + numChars));
       idx += numChars;
 
-      while (iter.hasNext())
+      // iterate over all operations in that line
+      while (operationIterator.hasNext())
       {
-        var o = iter.next();
-        var propChanged = false;
-        Changeset.eachAttribNumber(o.attribs, function (a)
+        // store the current operation
+        var currentOperation = operationIterator.next();
+        var propertyHasChanged = false; 
+
+        // for each attribute of the current operation, call the given function
+        Changeset.eachAttribNumber(currentOperation.attribs, function (attributeNumberInAttributePool)
         {
-          if (a in anumMap)
+          if (attributes[attributeNumberInAttributePool].currentState === 'FALSE')
           {
-            var i = anumMap[a]; // i = 0 => bold, etc.
-            if (!propVals[i])
-            {
-              propVals[i] = ENTER;
-              propChanged = true;
-            }
-            else
-            {
-              propVals[i] = STAY;
-            }
+            attributes[attributeNumberInAttributePool].currentState = 'ENTER';
+            propertyHasChanged = true;
           }
+          else
+          {
+            attributes[attributeNumberInAttributePool].currentState = 'STAY';
+          }
+
         });
-        for (var i = 0; i < propVals.length; i++)
+
+        for (var attributeId = 0; attributeId < attributes.length; attributeId++)
         {
-          if (propVals[i] === true)
+          if (attributes[attributeId].currentState === 'TRUE')
           {
-            propVals[i] = LEAVE;
-            propChanged = true;
+            attributes[attributeId].currentState = 'LEAVE';
+            propertyHasChanged = true;
           }
-          else if (propVals[i] === STAY)
+          else if (attributes[attributeId].currentState === 'STAY')
           {
-            propVals[i] = true; // set it back
+            attributes[attributeId].currentState = 'TRUE'; // set it back
           }
         }
-        // now each member of propVal is in {false,LEAVE,ENTER,true}
+
+        // now each attribute state is in {FALSE,LEAVE,ENTER,TRUE}
         // according to what happens at start of span
-        if (propChanged)
+        if (propertyHasChanged)
         {
           // leaving bold (e.g.) also leaves italics, etc.
-          var left = false;
-          for (var i = 0; i < propVals.length; i++)
+          var hasLeft = false;
+
+          for (var attributeId = 0; attributeId < attributes.length; attributeId++)
           {
-            var v = propVals[i];
-            if (!left)
+            if (hasLeft === false)
             {
-              if (v === LEAVE)
+              if (attributes[attributeId].currentState === 'LEAVE')
               {
-                left = true;
+                hasLeft = true;
               }
             }
             else
             {
-              if (v === true)
+              if (attributes[attributeId].currentState === 'TRUE')
               {
-                propVals[i] = STAY; // tag will be closed and re-opened
+                attributes[attributeId].currentState === 'STAY'; 
               }
             }
           }
 
-          for (var i = propVals.length - 1; i >= 0; i--)
+          for (var attributeId = attributes.length - 1; attributeId >= 0; attributeId--)
           {
-            if (propVals[i] === LEAVE)
+            if (attributes[attributeId].currentState === 'LEAVE')
             {
-              emitCloseTag(i);
-              propVals[i] = false;
+              stringAssembler.append(attributes[attributeId].htmlCloseTag);
+              attributes[attributeId].currentState = 'FALSE';
             }
-            else if (propVals[i] === STAY)
+            else if (attributes[attributeId].currentState === 'STAY')
             {
-              emitCloseTag(i);
+              stringAssembler.append(attributes[attributeId].htmlCloseTag);;
             }
           }
-          for (var i = 0; i < propVals.length; i++)
-          {
-            if (propVals[i] === ENTER || propVals[i] === STAY)
-            {
-              emitOpenTag(i);
-              propVals[i] = true;
-            }
-          }
-          // propVals is now all {true,false} again
-        } // end if (propChanged)
-        var chars = o.chars;
-        if (o.lines)
-        {
-          chars--; // exclude newline at end of line, if present
-        }
-        var s = taker.take(chars);
 
-        assem.append(_escapeHTML(s));
-      } // end iteration over spans in line
-      for (var i = propVals.length - 1; i >= 0; i--)
-      {
-        if (propVals[i])
+          for (var attributeId = 0; attributeId < attributes.length; attributeId++)
+          {
+            if (attributes[attributeId].currentState === 'ENTER' || attributes[attributeId].currentState === 'STAY')
+            {
+              stringAssembler.append(attributes[attributeId].htmlOpenTag);
+              attributes[attributeId].currentState = 'TRUE';
+            }
+          } 
+        } // end if(propertyHasChanged)
+        
+        var currentCharacters = currentOperation.chars;
+
+        if (currentOperation.lines)
         {
-          emitCloseTag(i);
-          propVals[i] = false;
+          currentCharacters--; // exclude newline at end of line, if present
+        }
+
+        stringAssembler.append(_escapeHTML(stringIterator.take(currentCharacters)));
+
+      } // end iteration over spans in line
+
+      for (var attributeId = attributes.length - 1; attributeId >= 0; attributeId--)
+      {
+        if (attributes[attributeId].currentState === 'TRUE')
+        {
+          stringAssembler.append(attributes[attributeId].htmlCloseTag);;
+          attributes[attributeId].currentState = 'FALSE';
         }
       }
+
     } // end processNextChars
+
     if (urls)
     {
       urls.forEach(function (urlData)
@@ -252,15 +278,17 @@ function getHTMLFromAtext(pad, atext)
         var url = urlData[1];
         var urlLength = url.length;
         processNextChars(startIndex - idx);
-        assem.append('<a href="' + url.replace(/\"/g, '&quot;') + '">');
+        stringAssembler.append('<a href="' + url.replace(/\"/g, '&quot;') + '">');
         processNextChars(urlLength);
-        assem.append('</a>');
+        stringAssembler.append('</a>');
       });
     }
+
     processNextChars(text.length - idx);
 
-    return _processSpaces(assem.toString());
+    return _processSpaces(stringAssembler.toString());
   } // end getLineHTML
+
   var pieces = [];
 
   // Need to deal with constraints imposed on HTML lists; can
@@ -272,7 +300,7 @@ function getHTMLFromAtext(pad, atext)
   var lists = []; // e.g. [[1,'bullet'], [3,'bullet'], ...]
   for (var i = 0; i < textLines.length; i++)
   {
-    var line = _analyzeLine(textLines[i], attribLines[i], apool);
+    var line = _analyzeLine(textLines[i], attribLines[i], attributePool);
     var lineContent = getLineHTML(line.text, line.aline);
 
     if (line.listLevel || lists.length > 0)
@@ -330,7 +358,7 @@ function getHTMLFromAtext(pad, atext)
   return pieces.join('');
 }
 
-function _analyzeLine(text, aline, apool)
+function _analyzeLine(text, aline, attributePool)
 {
   var line = {};
 
@@ -342,7 +370,7 @@ function _analyzeLine(text, aline, apool)
     var opIter = Changeset.opIterator(aline);
     if (opIter.hasNext())
     {
-      var listType = Changeset.opAttributeValue(opIter.next(), 'list', apool);
+      var listType = Changeset.opAttributeValue(opIter.next(), 'list', attributePool);
       if (listType)
       {
         lineMarker = 1;
