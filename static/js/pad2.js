@@ -145,41 +145,26 @@ function savePassword()
   document.location=document.location;
 }
 
-// taken heavily from the the original handshake()
-function sendMessageToServer(messageType, messageData)
+function handshake()
 {
-  // check if there is allready a connected socket
-  if(typeof(socket) === 'undefined')
-  {
-    var loc = document.location;
-    //get the correct port
-    var port = loc.port == "" ? (loc.protocol == "https:" ? 443 : 80) : loc.port;
-    //create the url
-    var url = loc.protocol + "//" + loc.hostname + ":" + port + "/";
-    //find out in which subfolder we are
-    var resource = loc.pathname.substr(1, loc.pathname.indexOf("/p/")) + "socket.io";
-    //connect
-    socket = io.connect(url, {
-      resource: resource
-    });
-    
-    socket.once('connect', sendMessage);
-  }
-  else if (socket.socket.connected === false)
-  {
-    socket.socket.connect();
-    socket.once('connect', sendMessage);
-  }
-  else
-  {
-    sendMessage();
-  }
+  var loc = document.location;
+  //get the correct port
+  var port = loc.port == "" ? (loc.protocol == "https:" ? 443 : 80) : loc.port;
+  //create the url
+  var url = loc.protocol + "//" + loc.hostname + ":" + port + "/";
+  //find out in which subfolder we are
+  var resource = loc.pathname.substr(1, loc.pathname.indexOf("/p/")) + "socket.io";
+  //connect
+  socket = io.connect(url, {
+    resource: resource
+  });
 
-  // the actual sending of the message, outsourced to a nested function so we dont have to duplicate code in the if...else
-  function sendMessage()
+  socket.once('connect', function()
   {
     var padId = document.location.pathname.substring(document.location.pathname.lastIndexOf("/") + 1);
     padId = unescape(padId); // unescape neccesary due to Safari and Opera interpretation of spaces
+
+    document.title = document.title + " | " + padId;
 
     var token = readCookie("token");
     if (token == null)
@@ -187,131 +172,103 @@ function sendMessageToServer(messageType, messageData)
       token = randomString();
       createCookie("token", token, 60);
     }
-
+    
     var sessionID = readCookie("sessionID");
     var password = readCookie("password");
 
-    // construct the message to be send
-    var message = {
+    var msg = {
       "component": "pad",
-      "type": messageType,
+      "type": "CLIENT_READY",
       "padId": padId,
       "sessionID": sessionID,
       "password": password,
       "token": token,
-      "protocolVersion": 2,
-      "data": messageData
+      "protocolVersion": 2
     };
-
-    socket.json.send(message);
-  };
-
-}
-
-function handshake()
-{
-  sendMessageToServer('CLIENT_READY');
-
-  // set the document title of the pad
-  var padId = document.location.pathname.substring(document.location.pathname.lastIndexOf("/") + 1);
-  padId = unescape(padId); // unescape neccesary due to Safari and Opera interpretation of spaces
-  document.title = document.title + " | " + padId;
+    socket.json.send(msg);
+  });
 
   var receivedClientVars = false;
   var initalized = false;
 
-  socket.on('message', function(msg)
+  socket.on('message', function(obj)
   {
-    if(msg.type == "CLIENT_VARS") {
-
-      obj = msg.data;
-
-      //the access was not granted, give the user a message
-      if(!receivedClientVars && obj.accessStatus)
+    //the access was not granted, give the user a message
+    if(!receivedClientVars && obj.accessStatus)
+    {
+      if(obj.accessStatus == "deny")
       {
-        if(obj.accessStatus == "deny")
-        {
-          $("#editorloadingbox").html("<b>You do not have permission to access this pad</b>");
-        }
-        else if(obj.accessStatus == "needPassword")
-        {
-          $("#editorloadingbox").html("<b>You need a password to access this pad</b><br>" +
-                                      "<input id='passwordinput' type='password' name='password'>"+
-                                      "<button type='button' onclick='savePassword()'>ok</button>");
-        }
-        else if(obj.accessStatus == "wrongPassword")
-        {
-          $("#editorloadingbox").html("<b>You're password was wrong</b><br>" +
-                                      "<input id='passwordinput' type='password' name='password'>"+
-                                      "<button type='button' onclick='savePassword()'>ok</button>");
-        }
+        $("#editorloadingbox").html("<b>You do not have permission to access this pad</b>");
       }
-      
-      //if we haven't recieved the clientVars yet, then this message should it be
-      else if (!receivedClientVars)
+      else if(obj.accessStatus == "needPassword")
       {
-        //log the message
-        if (window.console) console.log(obj);
-
-        receivedClientVars = true;
-
-        //set some client vars
-        clientVars = obj;
-        clientVars.userAgent = "Anonymous";
-        clientVars.collab_client_vars.clientAgent = "Anonymous";
-
-        // TODO:msievers: Using eval to convert the stringified functions back to functions will likely fail on IE, where you have to use execScript for this.
-
-        //eval the hook functions, which were converted to strings before sending them via JSON
-        if(clientVars.hooks !== undefined) {
-          for(i in clientVars.hooks)
-            for(j in clientVars.hooks[i])
-              eval("clientVars.hooks['" + i.toString() + "'][" + j.toString() + "].hookFunction = " + clientVars.hooks[i][j].hookFunction);}
-
-        //initalize the pad
-        pad.init();
-        initalized = true;
-
-        // If the LineNumbersDisabled value is set to true then we need to hide the Line Numbers
-        if (LineNumbersDisabled == true)
-        {
-          pad.changeViewOption('showLineNumbers', false);
-        }
-        // If the Monospacefont value is set to true then change it to monospace.
-        if (useMonospaceFontGlobal == true)
-        {
-          pad.changeViewOption('useMonospaceFont', true);
-        }
-        // if the globalUserName value is set we need to tell the server and the client about the new authorname
-        if (globalUserName !== false)
-        {
-          pad.notifyChangeName(globalUserName); // Notifies the server
-          pad.myUserInfo.name = globalUserName;
-          $('#myusernameedit').attr({"value":globalUserName}); // Updates the current users UI
-        }
+        $("#editorloadingbox").html("<b>You need a password to access this pad</b><br>" +
+                                    "<input id='passwordinput' type='password' name='password'>"+
+                                    "<button type='button' onclick='savePassword()'>ok</button>");
+      }
+      else if(obj.accessStatus == "wrongPassword")
+      {
+        $("#editorloadingbox").html("<b>You're password was wrong</b><br>" +
+                                    "<input id='passwordinput' type='password' name='password'>"+
+                                    "<button type='button' onclick='savePassword()'>ok</button>");
       }
     }
-    // remove that message handler once the clientVars have been transfered
-    socket.removeListener('message', arguments.callee);
-  });
+    
+    //if we haven't recieved the clientVars yet, then this message should it be
+    else if (!receivedClientVars)
+    {
+      //log the message
+      if (window.console) console.log(obj);
 
-  //This handles every Message after the clientVars
-  socket.on('message', function(msg)
-  {
-    //this message advices the client to disconnect
-    if (msg.disconnect)
-    {
-      padconnectionstatus.disconnected(msg.disconnect);
-      socket.disconnect();
-      return;
+      receivedClientVars = true;
+
+      //set some client vars
+      clientVars = obj;
+      clientVars.userAgent = "Anonymous";
+      clientVars.collab_client_vars.clientAgent = "Anonymous";
+
+      //eval the hook functions, which were converted to strings before sending them via JSON
+      if(clientVars.hooks !== undefined) {
+        for(i in clientVars.hooks)
+          for(j in clientVars.hooks[i])
+            eval("clientVars.hooks['" + i.toString() + "'][" + j.toString() + "].hookFunction = " + clientVars.hooks[i][j].hookFunction);}
+
+      //initalize the pad
+      pad.init();
+      initalized = true;
+
+      // If the LineNumbersDisabled value is set to true then we need to hide the Line Numbers
+      if (LineNumbersDisabled == true)
+      {
+        pad.changeViewOption('showLineNumbers', false);
+      }
+      // If the Monospacefont value is set to true then change it to monospace.
+      if (useMonospaceFontGlobal == true)
+      {
+        pad.changeViewOption('useMonospaceFont', true);
+      }
+      // if the globalUserName value is set we need to tell the server and the client about the new authorname
+      if (globalUserName !== false)
+      {
+        pad.notifyChangeName(globalUserName); // Notifies the server
+	pad.myUserInfo.name = globalUserName;
+        $('#myusernameedit').attr({"value":globalUserName}); // Updates the current users UI
+      }
     }
-    else if(msg.type === 'COLLABROOM')
+    //This handles every Message after the clientVars
+    else
     {
-      pad.collabClient.handleMessageFromServer(msg);
-    }
-    else if(msg.type === 'DATASTORE')
-    {
-      pad.datastore.handleMessageFromServer(msg);
+      //this message advices the client to disconnect
+      if (obj.disconnect)
+      {
+        padconnectionstatus.disconnected(obj.disconnect);
+        socket.disconnect();
+        return;
+      }
+      else
+      {
+        pad.collabClient.handleMessageFromServer(obj);
+      }
     }
   });
 
@@ -329,32 +286,6 @@ var pad = {
   clientTimeOffset: null,
   preloadedImages: false,
   padOptions: {},
-
-  // here comes the datastore code
-  datastore: {
-
-    add: function(datastoreId, objectToStore)
-    {
-      //
-    },
-
-    get: function(datastoreId, recordId)
-    {
-      //
-    },
-
-    remove: function(datastoreId, recordId)
-    {
-      //
-    },
-
-    handleMessageFromServer: function(msg)
-    {
-      //
-    },
-  
-  
-  },
 
   // these don't require init; clientVars should all go through here
   getPadId: function()
