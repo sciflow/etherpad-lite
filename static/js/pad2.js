@@ -259,6 +259,10 @@ function handshake()
         socket.disconnect();
         return;
       }
+      else if(obj.type === 'DATASTORE')
+      {
+        pad.datastore.handleMessageFromServer(msg);
+      }
       else
       {
         pad.collabClient.handleMessageFromServer(obj);
@@ -280,6 +284,32 @@ var pad = {
   clientTimeOffset: null,
   preloadedImages: false,
   padOptions: {},
+
+  // here comes the datastore code
+  datastore: {
+
+    add: function(datastoreId, objectToStore)
+    {
+      //
+    },
+
+    get: function(datastoreId, recordId)
+    {
+      //
+    },
+
+    remove: function(datastoreId, recordId)
+    {
+      //
+    },
+
+    handleMessageFromServer: function(msg)
+    {
+      //
+    },
+  
+  
+  },
 
   // these don't require init; clientVars should all go through here
   getPadId: function()

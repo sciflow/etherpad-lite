@@ -72,7 +72,129 @@ Class('Pad', {
             'id' : id,
         }
     },
-    
+
+    //TODO: It would be even nicer if the datastore operations would be grouped like Pad.datastore.get() ...
+    datastoreGet : function(datastoreId, recordId, callback)
+    {
+      var _this = this;
+
+      // if a recordId is given, return only that single record      
+      if(typeof(recordId) !== 'undefined' && recordId !== null)
+      {
+        db.get("pad:" + _this.id + ":datastore:" + datastoreId + ":" + recordId, callback);
+      }
+      // if no recordId is given, return an array containing all datastore entries
+      else
+      {
+        // get all datastore entrys
+        db.get("pad:" + _this.id + ":datastore:" + datastoreId + ":" + "HEAD", function(err, headCounter)
+        {
+          var recordCount = parseInt(headCounter);
+          var records = [];
+
+          // initialize and extend the array in order to use it with async.forEach
+          for(var i = 0;i < recordCount+1; i++)
+          {
+            records[i] = i; 
+          }
+
+          async.forEach(records, function(recordId, forEachCallback)
+          {
+            db.get("pad:" + _this.id + ":datastore:" + datastoreId + ":" + recordId, function(err, recordObject)
+            {
+              records[recordId] = recordObject;
+              forEachCallback(err);
+            });
+          }, function(err)
+          {
+            callback(err, records);
+          }); 
+        });    
+      }
+    },
+
+    datastoreAdd : function(datastoreId, recordObject, callback)
+    {
+      var _this = this;
+
+      // if no recordObject is given, return immediately with a -1 indicating an error to the calling function
+      if(typeof(recordObject) === 'undefined' || recordObject === null)
+      {
+        var err = -1;
+        callback(err);
+      }
+      // otherwise
+      else
+      {
+        // check if the datastore exists (if there is a HEAD entry, we have a datastore)
+        db.get("pad:" + _this.id + ":datastore:" + datastoreId + ":" + "HEAD", function(err, headCounter)
+        {
+          // if there is no HEAD counter, set it to -1 so that the following logic works just fine
+          if(typeof(headCounter) === 'undefined')
+          {
+            headCounter = -1;
+          }
+
+          // increment the head counter (doing this inline using ++ does not work even when using as suffix)
+          var newHeadCounter = headCounter + 1;
+        
+          // now push the object in the datastore
+          db.set("pad:" + _this.id + ":datastore:" + datastoreId + ":" + newHeadCounter,
+          {
+            'recordData' : recordObject,
+            'recordMetaData' :
+            {
+              'someMetaData' : 'something interesting'
+            }
+          });
+
+          // after pushing the object to the datastore, update the increment the head counter in the db
+          db.set("pad:" + _this.id + ":datastore:" + datastoreId + ":" + "HEAD", newHeadCounter);
+
+          // return the new head counter after adding the record object
+          callback(null, newHeadCounter);
+        });
+      }
+    },
+
+    datastoreRemove : function(datastoreId, recordId, callback)
+    {
+      var _this = this;
+
+      // if a recordId is given, remove only that single record
+      if(typeof(recordId) !== 'undefined' && recordId !== null)
+      {
+        db.remove("pad:" + _this.id + ":datastore:" + datastoreId + ":" + recordId, callback);
+      }
+      // if no recordId is given, remove all entries of the datastore and the head counter
+      else
+      {
+        // we need to know the head counter in order to remove all entries with recordId <= headCounter
+        db.get("pad:" + _this.id + ":datastore:" + datastoreId + ":" + "HEAD", function(err, headCounter)
+        {
+          var recordCount = parseInt(headCounter);
+          var records = [];
+
+          // initialize and extend the array in order to use it with async.forEach
+          for(var i = 0;i < recordCount+1; i++)
+          {
+            records[i] = i;
+          }
+
+          async.forEach(records, function(recordId, forEachCallback)
+          {
+            db.remove("pad:" + _this.id + ":datastore:" + datastoreId + ":" + recordId);
+            forEachCallback(err);
+          }, function(err)
+          {
+            // last but not least (if there was no error) remove the head counter
+            if(!err) db.remove("pad:" + _this.id + ":datastore:" + datastoreId + ":" + "HEAD");
+            callback(null, null);
+          });
+        });
+      } 
+    },
+
     appendRevision : function(aChangeset, author) 
     {
       if(!author)
