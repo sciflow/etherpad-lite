@@ -211,6 +211,65 @@ async.waterfall([
       var filePath = path.normalize(__dirname + "/../static/pad.html");
       res.sendfile(filePath, { maxAge: exports.maxAge });
     });
+
+    //serve the datastore resources under /p/:padId/datastore/:datastoreId/:recordId
+    app.get('/p/:pad/datastore/:datastoreId/:recordId', function(req, res, next)
+    {
+      var padId = req.params.pad;
+      var datastoreId = req.params.datastoreId;
+      var recordId = req.params.recordId;
+    
+      //ensure the padname is valid and the url doesn't end with a /
+      if(!padManager.isValidPadId(padId) || /\/$/.test(req.url))
+      {
+        res.send('Such a padname is forbidden', 404);
+        return;
+      }
+
+      var pad = null;
+      var result = null;
+
+      // try to get the requested record from the datastore
+      async.series([
+        function(callback)
+        {
+          padManager.getPad(padId, function(err, _pad)
+          {
+            pad = _pad;
+            callback(err);
+          });
+        },
+        function(callback)
+        {
+          pad.datastoreGet(datastoreId, recordId, function(err, _result)
+          {
+            result = (typeof(_result) === 'undefined' ? null : _result);
+            callback(err);
+          });
+        },
+        function(callback)
+        {
+          //res.header("Server", serverName);
+
+          if(result === null)
+          {
+            callback("Trying to get record:" + recordId + " from datastore:" + datastoreId + " failed!");
+          }
+          else
+          {
+            res.json(result);
+            callback();
+          }
+        }
+      ], function(err)
+      {
+        if(err)
+        {
+          //throw err;
+          res.send('No such datastore or reocrd.', 404);
+        }
+      });
+    });
     
     //serve timeslider.html under /p/$padname/timeslider
     app.get('/p/:pad/timeslider', function(req, res, next)
