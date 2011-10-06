@@ -20,6 +20,7 @@
 
 var db = require("./DB").db;
 var async = require("async");
+var crypto = require("crypto");
 
 /**
  * Checks if the author exists
@@ -130,10 +131,22 @@ exports.createAuthor = function(name, callback)
 {
   //create the new author name
   var author = "a." + randomString(16);
-        
+  
+  // create hash object
+  var hashsum = crypto.createHash("sha1");
+  
+  // update the hash content with a random string
+  hashsum.update(randomString(16));
+ 
   //create the globalAuthors db entry
   var authorObj = {"colorId" : Math.floor(Math.random()*32), "name": name, "timestamp": new Date().getTime()};
-        
+
+  // add the credentials object to the globalAuthors db entry
+  authorObj.credentials = {
+    "passwordHash" : hashsum.digest("hex"),
+    "hashAlgorithm" : "sha1"
+  };
+
   //set the global author db entry
   db.set("globalAuthor:" + author, authorObj);
   
@@ -188,6 +201,40 @@ exports.getAuthorName = function (author, callback)
 exports.setAuthorName = function (author, name, callback)
 {
   db.setSub("globalAuthor:" + author, ["name"], name, callback);
+}
+
+/**
+ * Sets the password(hash) of the author
+ * @param {String} author The id of the author
+ * @param {String} password The password of the author
+ * @param {String} hashAlgorithm The hash algorithm (used by crypto.createHash) to create the password hash.
+ * @param {Function} callback (optional)
+ */
+exports.setAuthorPassword = function (author, password, hashAlgorithm, callback)
+{
+  // if no hash algorithm is given, default to sha1
+  if(typeof(hashAlgorithm) === "undefined" || hashAlgorithm === null)
+  {
+    hashAlgorithm = "sha1";
+  }
+
+  // create the hash object
+  var hashsum = crypto.createHash(hashAlgorithm);
+
+  // update the hash content using the given password, salted with the id of the author
+  hashsum.update(password + author);
+
+  var credentials = {
+    "passwordHash" : hashsum.digest("hex"),
+    "hashAlgorithm" : hashAlgorithm
+  };
+
+  db.setSub("globalAuthor:" + author, ["credentials"], credentials, callback);
+
+  if(typeof(callback) === "function")
+  {
+    callback(null, credentials);
+  }
 }
 
 /**
