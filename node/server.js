@@ -92,7 +92,38 @@ async.waterfall([
     app.configure(function() 
     {
       app.use(log4js.connectLogger(httpLogger, { level: log4js.levels.INFO, format: ':status, :method :url'}));
+      app.use(express.bodyParser());
       app.use(express.cookieParser());
+      app.use(express.session({ secret: "etherpad-lite"})); //TODO: replace the secret with something more random
+    });
+
+    //expres route middleware to check if the user is authenticated
+    function requiresAuthentification(req, res, next) {
+
+      if(req.session.isAuthenticated) {
+        next()
+      }
+      else {
+        res.redirect('/static/login.html?redirectAfterAuthentification=' + req.url);
+      }
+
+    }
+
+    app.post('/authenticate', function(req, res)
+    {
+      var username = req.body.username;
+      var password = req.body.password;
+
+      req.session.isAuthenticated = true;
+      res.send("You where successfully authenticated.", 200);
+      //res.redirect(req.body.redirectAfterAuthentification); 
+    });
+
+    //deliver the admin interface below ep-admin, using route middleware to check for authentification
+    app.get('/ep-admin*', requiresAuthentification, function(req, res)
+    {
+      res.header("Server", serverName);
+      res.render(__dirname + "/../ep-admin/index.ejs", {layout: false, locals: {username:"Bob"} });
     });
     
     //serve static files

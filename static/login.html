@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Etherpad-lite Login</title>
+  <!-- CSS -->
+  <link rel="stylesheet" type="text/css" href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.16/themes/smoothness/jquery-ui.css">
+  <style>
+                body { font-size: 62.5%; }
+                label, input { display:block; }
+                input.text { margin-bottom:12px; width:95%; padding: .4em; }
+                fieldset { padding:0; border:0; margin-top:25px; }
+                /*
+                h1 { font-size: 1.2em; margin: .6em 0; }
+                */
+                .ui-dialog .ui-state-error { padding: .3em; }
+                .validateTips { border: 1px solid transparent; padding: 0.3em; }
+  </style>
+  <!-- javascript -->
+  <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.4/jquery.js"></script>
+  <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.16/jquery-ui.js"></script>
+
+  <script type="text/javascript">
+
+  //jquery has nothing like this, just as plugins
+  function getQueryStringValueForParameter(parameter)
+  {
+    var queryString = window.location.search.substring(1);
+    var parameterArray  = queryString.split("&");
+
+    for (i=0; i < parameterArray.length; i++) {
+      var parameterValuePair = parameterArray[i].split("=");
+      if (parameterValuePair[0] == parameter) {
+        return parameterValuePair[1];
+      }
+    }
+  }
+  
+  $(function() {
+    $( "#loginDialogForm" ).dialog({
+      autoOpen: true,
+      height: 210,
+      width: 240,
+      modal: true,
+      buttons: {
+        "Login": function() {
+          var bValid = true;
+          //allFields.removeClass( "ui-state-error" );
+          
+          //bValid = bValid && checkLength( name, "username", 3, 16 );
+          //bValid = bValid && checkLength( email, "email", 6, 80 );
+          //bValid = bValid && checkLength( password, "password", 5, 16 );
+
+          if ( bValid ) {
+            $.post('/authenticate', {
+              username: $("#username").val(),
+              password: $("#password").val(),
+            }, function(result) {
+              window.location = getQueryStringValueForParameter('redirectAfterAuthentification');
+            });
+            $(this).dialog("close");
+          }
+        },
+        Cancel: function() {
+          $( this ).dialog( "close" );
+        }
+      },
+      close: function() {
+        //allFields.val( "" ).removeClass( "ui-state-error" );
+      }
+    });
+
+    /*
+    $( "#loginButton" )
+      .button()
+      .click(function() {
+        $( "#loginDialogForm" ).dialog( "open" );
+      });
+    */
+    });
+
+  </script>
+</head>
+
+<body>
+
+<div id="loginDialogForm" title="Login">
+  <form>
+    <fieldset>
+      <label for="username">Username</label>
+      <input id="username" name="username" type="text" size="30" maxlength="30"></p>
+      
+      <label for="passord">Password</label>
+      <input id="password" name="password" type="password" size="30" maxlength="40"></p>
+      
+      <input name="redirectAfterAuthentification" type="hidden"></p>
+    </fieldset>
+  </form>
+</div>
+
+<!--
+<button id="loginButton">Login</button>
+-->
+
+<!--
+  <script type="text/javascript">
+    document.loginForm.redirectAfterAuthentification.value = getQueryStringValueForParameter('redirectAfterAuthentification');
+  </script>
+</form>
+-->
+
+</body>
+</html>
