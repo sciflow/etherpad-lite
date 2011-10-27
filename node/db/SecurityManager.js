@@ -25,6 +25,27 @@ var padManager = require("./PadManager");
 var sessionManager = require("./SessionManager");
 
 /**
+  * Since we are using the Express framework we can check the access rights
+  * during each ressource request using a route middleware function.
+  */
+exports.checkAccessRouteMiddleware = function (req, res, next) {
+
+  /*
+   * This function hast to check if the user is allready authenticated.
+   * In some cases, it is not neccessary for the user to be allready authenticated, e.g. if the user tries to access a public pad. 
+   * If the user is authenticated, the function has to check, if the user is allowed to access the specified ressource.
+   * If the user is not authenticated, the use should be redirected to a page, which allows the user to authenticate.
+   */
+
+  // is there an accessControlList record for the requested URL (e.g. /p/9CXXrjihsa) ?
+  // if we can consider, that an accessControlList is created everytime, a ressource is created, than an access can be denied of there is no ACL
+  // BUT what if the user access a sub ressource of a ressource and there is no ACL for the subressource ?
+  // - e.g. the user tries to access /p/9CXXrjihsa/datastore/images/5 ?
+  // - this means that for every datastoreAdd operation, an appropriate ACL has to be created
+  // - the created ACL should by default simply adopt the settings of its parent ressource, or if the is no entry for that, than for the next parent and so on.
+}
+
+/**
  * This function controlls the access to a pad, it checks if the user can access a pad.
  * @param padID the pad the user wants to access
  * @param sesssionID the session the user has (set via api)
