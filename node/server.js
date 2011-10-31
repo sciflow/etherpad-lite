@@ -94,7 +94,96 @@ async.waterfall([
       app.use(log4js.connectLogger(httpLogger, { level: log4js.levels.INFO, format: ':status, :method :url'}));
       app.use(express.cookieParser());
     });
-    
+
+    /*
+     * The route middleware function for authentification and authorization.
+     * In order to not break the current conventions and code this function
+     * is rather complex, which could be simplified if the whole code would
+     * be changed accordingly.
+     */
+
+    //route middleware for the authentification check
+    function checkAuthentificationAndAuthorization(req, res, next)
+    {
+      var requestedRessource = req.url;
+
+      //check what kind of ressource is requested
+      var isOrdinaryPad = new RegExp('^/p/[A-Za-z0-9]{10}($|(/[A-Za-z0-9]*)+)$').test(requestedRessource);
+      var isGroupPad = new RegExp('^/p/g.[A-Za-z0-9]{16}($|(\\$[A-Za-z0-9]+))($|(/[A-Za-z0-9]*)+)$').test(requestedRessource);
+
+      //try to get ACL for the requested ressource or of the first parent which has one
+      var accessControlList = undefined;
+
+      async.whilst(
+        function()
+        {
+          //loop until we have an ACL or there is no more parent ressource to check
+          if(typeof(accessControlList) === 'undefined' && (requestedRessource !== ''))
+            return true;
+          else
+            return false;
+        },
+        function (callback) {
+          //check if there is an ACL for that ressource
+          db.db.get("accessControlList:" + requestedRessource, function (err, result)
+          {
+            accessControlList = result;
+            
+            //remove the part after the last slash in order to check for the parent ACL if there is no ACL for the current ressource
+            requestedRessource = requestedRessource.replace(new RegExp('/\\w*$'), '');
+
+            //next round
+            callback();
+          });
+        },
+        function (err) {
+          //restore the (potentialy altered) requestedRessource variable
+          requestedRessource = req.url;
+
+          //handle the case that someone trys to access an ordinary pad for which there is no ACL so far
+          if(isOrdinaryPad && typeof(accessControlList)  === 'undefined')
+          {
+            accessControlList = {
+              'allowedEntities' : ['a.[A-Za-z0-9]{16}'], //allowing all authors 
+              'deniedEntities' : []
+            };
+
+            //put an ACL for this pad into the database allowing everybody access
+            db.db.set('accessControlList:' + requestedRessource.match(new RegExp('^/p/[A-Za-z0-9]{10}')), accessControlList); 
+          }
+        }
+      );
+
+      /* get the requesting user */
+
+      //if there is a token cockie
+
+        //author = getAuthor4token
+
+      //else
+
+        //show login form to get usernamAe
+
+        //author =  mapper2author
+
+        //create token and put this in db using getAuthor4Token
+
+        //set token cookie on the client
+
+      /* check if the user is allowed to access the ressource */
+
+      //if the author is in no of the both lists or the author is in the acl.denied list
+
+        // deny access
+
+        // show login form
+
+      //if the author is in the acl.allowed list, allow access
+
+      next();
+
+    }
+
     //serve static files
     app.get('/static/*', function(req, res)
     { 
@@ -140,7 +229,7 @@ async.waterfall([
         }
       });
     }
-    
+  
     //serve read only pad
     app.get('/ro/:id', function(req, res)
     { 
@@ -198,7 +287,7 @@ async.waterfall([
     });
         
     //serve pad.html under /p
-    app.get('/p/:pad', function(req, res, next)
+    app.get('/p/:pad', checkAuthentificationAndAuthorization, function(req, res, next)
     {    
       //ensure the padname is valid and the url doesn't end with a /
       if(!padManager.isValidPadId(req.params.pad) || /\/$/.test(req.url))
