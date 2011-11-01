@@ -86,6 +86,7 @@ async.waterfall([
     padManager = require('./db/PadManager');
     securityManager = require('./db/SecurityManager');
     socketIORouter = require("./handler/SocketIORouter");
+    authorManager = require('./db/AuthorManager');
     
     //install logging      
     var httpLogger = log4js.getLogger("http");
@@ -154,21 +155,33 @@ async.waterfall([
         }
       );
 
-      /* get the requesting user */
+      /*
+       * get the requesting user
+       */
+      var author = undefined;
 
-      //if there is a token cockie
-
-        //author = getAuthor4token
-
-      //else
-
-        //show login form to get usernamAe
+      //if there is a token cookie
+      if(typeof(req.cookies.token) !== 'undefined')
+      {
+         //get author4token
+         authorManager.getAuthor4Token(token, function(err, result)
+         {
+           author = result;
+           //callback(err);
+         });   
+      }
+      //if there is no token, render to the login page
+      else 
+      {
+        res.header("Server", serverName);
+        res.render(__dirname + "/../static/login.ejs", {layout: false, locals: {redirectAfterAuthentification: req.url} });
 
         //author =  mapper2author
 
         //create token and put this in db using getAuthor4Token
 
         //set token cookie on the client
+      }
 
       /* check if the user is allowed to access the ressource */
 
@@ -180,7 +193,7 @@ async.waterfall([
 
       //if the author is in the acl.allowed list, allow access
 
-      next();
+      //next();
 
     }
 
