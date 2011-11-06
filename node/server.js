@@ -318,46 +318,9 @@ async.waterfall([
     });
 
     //This applys the same logic to all HTTP verbs on the RESTful API urls
-    app.all(/^\/api\/2\/([0-9a-zA-Z]+)\/?([0-9a-zA-Z.]*)$/, function(req, res, next)
+    app.all(/^\/api\/2$|^\/api\/2\/((?:[0-9a-zA-Z]+.?[0-9a-zA-Z]+\/?)*)$/, restfulApiHandler.handleApiCall, function(req, res, next)
     {
-      //check if this is a supported http verb
-      if(!(req.method.match(/^(get|put|post|delete)$/i)))
-      {
-        //this is a unsupported http verb, so send http 405 (method not allowed)
-        res.send(405);
-        return;
-      }
-
-      //check if this is a supported collection
-      if(!(req.params[0].match(/^(authors|groups|pads|sessions|tokens)$/i)))
-      {
-        //we just have authors, groups, ... so this is http 404 (not found)
-        res.send(404);
-        return;
-      }
-
-      //we have a supported http verb, a known collection and (perhaps) a item, so lets call the handler
-      restfulApiHandler.handleApiCall(req.method, req.params[0], (req.params[1] === '') ? undefined : req.params[1], req.body, function(err, result)
-      {
-        //if there is an error, than it contains the http return code (per convention)
-        if(err)
-        {
-          res.send(err);
-        }
-
-        //before sending the response, we have to check which format the client has requested
-        if(req.headers.accept.match(/application\/json/))
-        {
-          //if the requested format is json, we can simply send the result of the api call
-          res.send(result);
-        }
-        else
-        {
-          //we can not deliver a acceptable formating, send http 406 (not acceptable)
-          res.send(406);
-        }
-      });
-
+       //everything is done in the route middlware (so far)
     });
 
     //The Etherpad client side sends information about how a disconnect happen
