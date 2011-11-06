@@ -22,6 +22,7 @@ var fs = require("fs");
 var path = require("path");
 var api = require("../db/API");
 var db = require("../db/DB").db;
+var exportLatex = require("../utils/ExportLatex.js");
 
 /**
  * Handles a RESTful HTTP API call
@@ -271,10 +272,13 @@ function exportPadRevision(req, res, handleResult)
   //we need to know, which pad, which revision and which output format
   var regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/revisions\/([0-9]+)\/exports\/([0-9a-zA-Z_]+)\/?$/);
 
-  if(regExpResult[3].match(/^pdf$/i))
+  if(regExpResult[3].match(/^pdflatex$/i))
   {
-    res.contentType('application/pdf');
-    res.sendfile(path.normalize(__dirname + '/../../tmp/sigproc-sp.pdf'));
+    exportLatex.getPadLatexDocument(regExpResult[1], regExpResult[2], function(err, result)
+    {
+      res.contentType('application/pdf');
+      res.sendfile(path.normalize(__dirname + '/../../tmp/sigproc-sp.pdf'));
+    });
 
     /*
     //send pdf
