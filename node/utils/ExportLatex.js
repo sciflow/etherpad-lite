@@ -120,8 +120,8 @@ function getLatexFromAtext(pad, atext)
 
   for(attributeId in attributes)
   {
-    attributes[attributeId].latexOpenTag = null;
-    attributes[attributeId].latexCloseTag = null;
+    attributes[attributeId].latexOpenTag = '';
+    attributes[attributeId].latexCloseTag = '';
    
 
     if(typeof(attributeToLatexTagMapping[attributes[attributeId].name]) !== 'undefined') 
@@ -132,8 +132,8 @@ function getLatexFromAtext(pad, atext)
     // we can put latex tags around some more special attributes too
     else if(attributes[attributeId].name === 'author')
     {
-      attributes[attributeId].latexOpenTag = '<span class="author-' + attributes[attributeId].value.replace(/\./g,'-') + '">';
-      attributes[attributeId].latexCloseTag = '</span>';
+      //attributes[attributeId].latexOpenTag = '<span class="author-' + attributes[attributeId].value.replace(/\./g,'-') + '">';
+      //attributes[attributeId].latexCloseTag = '</span>';
     }
   }
 
