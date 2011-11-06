@@ -19,7 +19,10 @@
  */
 
 var fs = require("fs");
+var path = require("path");
 var api = require("../db/API");
+var db = require("../db/DB").db;
+var exportLatex = require("../utils/ExportLatex.js");
 
 /**
  * Handles a RESTful HTTP API call
@@ -48,7 +51,7 @@ exports.handleApiCall = function(req, res, next)
       regEx: /^authors\/?$/,
       getHandler: getListOfAuthors,
       postHandler: createAuthor
-    }];
+    },
 /*    {
       regEx: /^authors\/a.[0-9a-zA-Z]{16}\/?$/,
       getHandler: getAuthor,
@@ -95,19 +98,24 @@ exports.handleApiCall = function(req, res, next)
       getHandler: getListOfPadRevisions,
       deleteHandler: deletePad
     },
+*/
     {
+      regEx: /^pads\/(?:[0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/revisions\/?$/,
+      getHandler: getPadRevisionHead
+    },
+/*    {
       regEx: /^pads\/(?:[0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/[0-9]+\/?$/,
       getHandler: getPadRevision,
       deleteHandler: deletePadRevision
     },
-    {
-      regEx: /^pads\/(?:[0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/[0-9]+\/exports\/?$/,
+*/    {
+      regEx: /^pads\/(?:[0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/revisions\/[0-9]+\/exports\/?$/,
       getHandler: getListOfAvailableExportFormats
     },
     {
-      regEx: /^pads\/(?:[0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/[0-9]+\/exports\/[0-9a-zA-Z_]+\/?$/,
+      regEx: /^pads\/(?:[0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/revisions\/[0-9]+\/exports\/[0-9a-zA-Z_]+\/?$/,
       getHandler: exportPadRevision
-    },
+    }/*,
     {
       regEx: /^pads\/(?:[0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/?$/,
       getHandler: getListOfPadDatastores,
@@ -132,8 +140,8 @@ exports.handleApiCall = function(req, res, next)
       putHandler: putDatastoreElement,
       deleteHandler: deleteDatastoreElement
     },
-  ];
   */
+  ];
 
   //lets figure out what the requester wants us to do
   var requestHandled = false;
@@ -229,6 +237,63 @@ function createAuthor(req, res, handleResult)
 
 }
 
+function getPadRevisionHead(req, res, handleResult)
+{
+  //which pad do we need to grab the revisions head for ?
+  if(regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/revisions\/?$/))
+  {
+    db.getSub("pad:" + regExpResult[1], ["head"], function(err, result)
+    {
+      handleResult(null, req, res, result);
+    });
+  }
+}
+
+/**
+ * Return the MIME-Types of the exprotable export formats.
+ */
+function getListOfAvailableExportFormats(req, res, handleResult)
+{
+  //first check, if there is such a pad
+
+  var result = [
+    'text/html',
+    'text/xhtml+xml',
+    'application/pdf',
+    'application/x-latex',
+    'application/x-latex+pdf'   //I know, there is no such MIME typ, but we have to distinguish between Abiword pdf export and pdflatex
+  ];
+
+  handleResult(null, req, res, result);
+}
+
+function exportPadRevision(req, res, handleResult)
+{
+  //we need to know, which pad, which revision and which output format
+  var regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/revisions\/([0-9]+)\/exports\/([0-9a-zA-Z_]+)\/?$/);
+
+  if(regExpResult[3].match(/^pdflatex$/i))
+  {
+    exportLatex.getPadLatexDocument(regExpResult[1], regExpResult[2], function(err, result)
+    {
+      res.contentType('application/pdf');
+      res.sendfile(path.normalize(__dirname + '/../../tmp/sigproc-sp.pdf'));
+    });
+
+    /*
+    //send pdf
+    fs.readFile(path.normalize(__dirname + '/../../tmp/sigproc-sp.pdf'), function(err, content) {
+      res.contentType('application/pdf');
+      res.send('Here comes the file');
+    });
+    */
+  }
+  else
+  {
+    res.send(404);
+  }
+}
+
 /**
  * Formates the response according to the "Accept" http header and send it
  */
@@ -239,7 +304,12 @@ function handleResult(err, req, res, result)
     if(req.accepts('json'))
     {
       res.contentType('application/json');
-      res.send(result);
+      res.send(JSON.stringify(result));
+    }
+    else if(req.accepts('html'))
+    {
+      res.contentType('text/html');
+      res.send('<html><head><title>Etherpad-lite API</title></head><body>' + result + '</body></html>');
     }
     else
     {
