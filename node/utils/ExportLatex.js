@@ -393,7 +393,7 @@ function _analyzeLine(text, aline, attributePool)
   return line;
 }
 
-exports.getPadLatexDocument = function (padId, revNum, noDocType, callback)
+exports.getPadLatexDocument = function (padId, revNum, callback)
 {
   padManager.getPad(padId, function (err, pad)
   {
