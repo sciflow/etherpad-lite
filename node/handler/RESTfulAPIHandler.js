@@ -244,6 +244,8 @@ function getPadRevisionHead(req, res, handleResult)
   {
     db.getSub("pad:" + regExpResult[1], ["head"], function(err, result)
     {
+      res.header('Pragma', 'no-cache');
+      res.header('Cache-Control', 'no-cache');
       handleResult(null, req, res, result);
     });
   }
@@ -287,6 +289,14 @@ function exportPadRevision(req, res, handleResult)
       res.send('Here comes the file');
     });
     */
+  }
+  else if(regExpResult[3].match(/^latex$/i))
+  {
+    exportLatex.getPadLatexDocument(regExpResult[1], regExpResult[2], function(err, result)
+    {
+      res.contentType('application/x-latex');
+      res.send(result, 200);
+    });
   }
   else
   {
