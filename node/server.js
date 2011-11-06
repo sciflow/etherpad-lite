@@ -32,6 +32,7 @@ var path = require('path');
 var minify = require('./utils/Minify');
 var formidable = require('formidable');
 var apiHandler;
+var restfulApiHandler;
 var exportHandler;
 var importHandler;
 var exporthtml;
@@ -83,6 +84,7 @@ async.waterfall([
     exportHandler = require('./handler/ExportHandler');
     importHandler = require('./handler/ImportHandler');
     apiHandler = require('./handler/APIHandler');
+    restfulApiHandler = require('./handler/RESTfulAPIHandler');
     padManager = require('./db/PadManager');
     securityManager = require('./db/SecurityManager');
     socketIORouter = require("./handler/SocketIORouter");
@@ -93,6 +95,7 @@ async.waterfall([
     {
       app.use(log4js.connectLogger(httpLogger, { level: log4js.levels.INFO, format: ':status, :method :url'}));
       app.use(express.cookieParser());
+      app.use(express.bodyParser());
     });
     
     //serve static files
@@ -313,7 +316,13 @@ async.waterfall([
       //call the api handler
       apiHandler.handle(req.params.func, req.query, req, res);
     });
-    
+
+    //This applys the same logic to all HTTP verbs on the RESTful API urls
+    app.all(/^\/api\/2$|^\/api\/2\/((?:[0-9a-zA-Z]+.?[0-9a-zA-Z]+\/?)*)$/, restfulApiHandler.handleApiCall, function(req, res, next)
+    {
+       //everything is done in the route middlware (so far)
+    });
+
     //The Etherpad client side sends information about how a disconnect happen
     app.post('/ep/pad/connection-diagnostic-info', function(req, res)
     {
