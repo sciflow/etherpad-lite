@@ -1,0 +1,80 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <title>Embedding a PDF using PDFObject: Simplest example!</title>
+
+  <script type="text/javascript" src="/static/js/pdfobject.min.js"></script>
+  <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.4/jquery.min.js"></script>
+
+  <script type="text/javascript">
+    var queryParameters = {};
+
+    window.onload = function ()
+    {
+      //check which pad and which revision to load
+      var queryString = location.href.split('?')[1].split('&');
+      
+      for(var i = 0; i < queryString.length; i++)
+      {
+        var queryParameterTuple = queryString[i].split('=');
+        queryParameters[queryParameterTuple[0]] = queryParameterTuple[1];
+      }
+
+      if(typeof(queryParameters['revision']) === 'undefined')
+      {
+        queryParameters['revision'] = $.ajax({
+          type: 'GET',
+          url: '/api/2/pads/' + queryParameters['padId'] + '/revisions',
+          dataType: 'json',
+          async: false
+        }).responseText;        
+      }
+
+      var success = new PDFObject({ url: '/api/2/pads/' + queryParameters['padId'] + '/revisions/' + queryParameters['revision'] + '/exports/pdflatex' }).embed("pdf");
+      $('#pdf').height($(window).height() - $('#statusLeiste').outerHeight(true));      
+
+      conditionalAlterStatusBar();
+
+    };
+    
+    function conditionalAlterStatusBar()
+    {
+      //get the current head revision number
+      var revisionHead = $.ajax({
+        type: 'GET',
+        url: '/api/2/pads/' + queryParameters['padId'] + '/revisions',
+        dataType: 'json',
+        async: false
+      }).responseText;      
+
+      if(revisionHead > queryParameters['revision'])
+      {
+        var anchorLink = location.href.split('?')[0] + '?padId=' + queryParameters['padId'] + '&revision=' + revisionHead;
+
+        $('#statusIcon').attr('src','/static/img/refresh_32.png');
+        $('#statusText').html('Sie betrachten nicht die aktuelle Revision. (<a href="' + anchorLink + '">Aktualisieren</a>)');
+      }
+
+      //do this again in 5 seconds
+      window.setTimeout("conditionalAlterStatusBar()", 5000);
+    }
+    
+    $(window).resize(function() {
+      $('#pdf').height($(window).height() - $('#statusLeiste').outerHeight(true));
+    });
+
+  </script>
+</head>
+<body style="margin:0px">
+  <div id="statusLeiste" style="height: 32px; position:relative; margin:0.3em">
+    <div>
+      <img id="statusIcon" src="/static/img/tick_32.png" height="32px" width="30px"/>
+    </div>
+    <div style="position:absolute; top:0px; left:45px;">
+      <p id="statusText" style="display: table-cell; vertical-align: middle; height:32px">Sie betrachten momentan die aktuelle Revision dieses Pads.</p>
+    </div>
+  </div>
+  <div id="pdf" style="">It appears you don't have Adobe Reader or PDF support in this web browser. <a href="pdf/sample.pdf">Click here to download the PDF</a></div>
+</body>
+</html>
