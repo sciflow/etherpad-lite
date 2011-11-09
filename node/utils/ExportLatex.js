@@ -90,7 +90,7 @@ function getLatexFromAtext(pad, atext)
   // build the attributes array which we will need through out the export
   var attributes = [];
 
-  for(attribute in attributePool.attribToNum)
+  for(var attribute in attributePool.attribToNum)
   {
     var attributeId = attributePool.attribToNum[attribute];
     var attributeName = String(attribute).split(',')[0];
@@ -105,25 +105,24 @@ function getLatexFromAtext(pad, atext)
   }
 
   // for the attributes we want to appear in our output, add the corresponding latex tags
-  attributeToLatexTagMapping = {
+  var attributeToLatexTagMapping = {
     bold:          { openTag: '\\textbf{',        closeTag: '}' },
     italic:        { openTag: '\\textit{',        closeTag: '}' },
     underline:     { openTag: '\\underline{',     closeTag: '}' },
     strikethrough: { openTag: '\\sout{',          closeTag: '}' },
-    heading1:      { openTag: '\\chapter{',       closeTag: '}' },
-    heading2:      { openTag: '\\section{',       closeTag: '}' },
-    heading3:      { openTag: '\\subsection{',    closeTag: '}' },
-    heading4:      { openTag: '\\subsubsection{', closeTag: '}' },
-    heading5:      { openTag: '\\paragraph{',     closeTag: '}' },
-    heading6:      { openTag: '\\subparagraph{',  closeTag: '}' },
+    heading1:      { openTag: '\\chapter{',       closeTag: '}\n' },
+    heading2:      { openTag: '\\section{',       closeTag: '}\n' },
+    heading3:      { openTag: '\\subsection{',    closeTag: '}\n' },
+    heading4:      { openTag: '\\subsubsection{', closeTag: '}\n' },
+    heading5:      { openTag: '\\paragraph{',     closeTag: '}\n' },
+    heading6:      { openTag: '\\subparagraph{',  closeTag: '}\n' },
   };
 
-  for(attributeId in attributes)
+  for(var attributeId in attributes)
   {
     attributes[attributeId].latexOpenTag = '';
     attributes[attributeId].latexCloseTag = '';
    
-
     if(typeof(attributeToLatexTagMapping[attributes[attributeId].name]) !== 'undefined') 
     {
       attributes[attributeId].latexOpenTag = attributeToLatexTagMapping[attributes[attributeId].name].openTag;
@@ -137,219 +136,96 @@ function getLatexFromAtext(pad, atext)
     }
   }
 
-  function getLineLatex(text, attribs)
-  {
-    // Use order of tags (b/i/u) as order of nesting, for simplicity
-    // and decent nesting.  For example,
-    // <b>Just bold<b> <b><i>Bold and italics</i></b> <i>Just italics</i>
-    // becomes
-    // <b>Just bold <i>Bold and italics</i></b> <i>Just italics</i>
-    var stringIterator = Changeset.stringIterator(text);
-    var stringAssembler = Changeset.stringAssembler();
-
-    var urls = _findURLs(text);
-
-    var idx = 0;
-
-    function processNextChars(numChars)
-    {
-      if (numChars <= 0)
-      {
-        return;
-      }
-
-      var operationIterator = Changeset.opIterator(Changeset.subattribution(attribs, idx, idx + numChars));
-      idx += numChars;
-
-      // iterate over all operations in that line
-      while (operationIterator.hasNext())
-      {
-        // store the current operation
-        var currentOperation = operationIterator.next();
-        var propertyHasChanged = false; 
-
-        // for each attribute of the current operation, call the given function
-        Changeset.eachAttribNumber(currentOperation.attribs, function (attributeNumberInAttributePool)
-        {
-          if (attributes[attributeNumberInAttributePool].currentState === 'FALSE')
-          {
-            attributes[attributeNumberInAttributePool].currentState = 'ENTER';
-            propertyHasChanged = true;
-          }
-          else
-          {
-            attributes[attributeNumberInAttributePool].currentState = 'STAY';
-          }
-
-        });
-
-        for (var attributeId = 0; attributeId < attributes.length; attributeId++)
-        {
-          if (attributes[attributeId].currentState === 'TRUE')
-          {
-            attributes[attributeId].currentState = 'LEAVE';
-            propertyHasChanged = true;
-          }
-          else if (attributes[attributeId].currentState === 'STAY')
-          {
-            attributes[attributeId].currentState = 'TRUE'; // set it back
-          }
-        }
-
-        // now each attribute state is in {FALSE,LEAVE,ENTER,TRUE}
-        // according to what happens at start of span
-        if (propertyHasChanged)
-        {
-          // leaving bold (e.g.) also leaves italics, etc.
-          var hasLeft = false;
-
-          for (var attributeId = 0; attributeId < attributes.length; attributeId++)
-          {
-            if (hasLeft === false)
-            {
-              if (attributes[attributeId].currentState === 'LEAVE')
-              {
-                hasLeft = true;
-              }
-            }
-            else
-            {
-              if (attributes[attributeId].currentState === 'TRUE')
-              {
-                attributes[attributeId].currentState === 'STAY'; 
-              }
-            }
-          }
-
-          for (var attributeId = attributes.length - 1; attributeId >= 0; attributeId--)
-          {
-            if (attributes[attributeId].currentState === 'LEAVE')
-            {
-              stringAssembler.append(attributes[attributeId].latexCloseTag);
-              attributes[attributeId].currentState = 'FALSE';
-            }
-            else if (attributes[attributeId].currentState === 'STAY')
-            {
-              stringAssembler.append(attributes[attributeId].latexCloseTag);;
-            }
-          }
-
-          for (var attributeId = 0; attributeId < attributes.length; attributeId++)
-          {
-            if (attributes[attributeId].currentState === 'ENTER' || attributes[attributeId].currentState === 'STAY')
-            {
-              stringAssembler.append(attributes[attributeId].latexOpenTag);
-              attributes[attributeId].currentState = 'TRUE';
-            }
-          } 
-        } // end if(propertyHasChanged)
-        
-        var currentCharacters = currentOperation.chars;
-
-        if (currentOperation.lines)
-        {
-          currentCharacters--; // exclude newline at end of line, if present
-        }
-
-        stringAssembler.append(_escapeLatex(stringIterator.take(currentCharacters)));
-
-      } // end iteration over spans in line
-
-      for (var attributeId = attributes.length - 1; attributeId >= 0; attributeId--)
-      {
-        if (attributes[attributeId].currentState === 'TRUE')
-        {
-          stringAssembler.append(attributes[attributeId].latexCloseTag);;
-          attributes[attributeId].currentState = 'FALSE';
-        }
-      }
-
-    } // end processNextChars
-
-    if (urls)
-    {
-      urls.forEach(function (urlData)
-      {
-        var startIndex = urlData[0];
-        var url = urlData[1];
-        var urlLength = url.length;
-        processNextChars(startIndex - idx);
-        stringAssembler.append('<a href="' + url.replace(/\"/g, '&quot;') + '">');
-        processNextChars(urlLength);
-        stringAssembler.append('</a>');
-      });
-    }
-
-    processNextChars(text.length - idx);
-
-    return _processSpaces(stringAssembler.toString());
-  } // end getLineLatex
-
   var pieces = [];
 
-  // Need to deal with constraints imposed on Latex lists; can
-  // only gain one level of nesting at once, can't change type
-  // mid-list, etc.
-  // People might use weird indenting, e.g. skip a level,
-  // so we want to do something reasonable there.  We also
-  // want to deal gracefully with blank lines.
-  var lists = []; // e.g. [[1,'bullet'], [3,'bullet'], ...]
-  for (var i = 0; i < textLines.length; i++)
-  {
-    var line = _analyzeLine(textLines[i], attribLines[i], attributePool);
-    var lineContent = getLineLatex(line.text, line.aline);
+  //an array containing the operations introduced by the attribs string
+  var operations = atext.attribs.replace(/(\*[a-zA-Z-0-9]+)/g, "$1 ").replace(/(\+[a-zA-Z0-9]+)/g, "$1 ").replace(/(\|[a-zA-Z0-9]\+[a-zA-Z0-9]+)/g, "$1 ").replace(/(?: ){2,}/g, " ").split(' ');
 
-    if (line.listLevel || lists.length > 0)
+  var currentMode = 'alterAttributesToApply';
+  var currentCursorPosition = 0;
+  var attributesToApply = []; //an object with members referenced by the attributeId
+
+  //we need to declare these in order for them not to be global
+  var currentOperation = undefined;
+  var regExpMatch = undefined;
+
+  while(currentOperation = operations.shift())
+  {
+    if(regExpMatch = currentOperation.match(/^\*([a-zA-Z0-9]+)$/))
     {
-      // do list stuff
-      var whichList = -1; // index into lists or -1
-      if (line.listLevel)
+      //if we are currently in applyAttributes mode, switch to alterAppliedAttributes mode
+      if(currentMode === 'applyAttributes')
       {
-        whichList = lists.length;
-        for (var j = lists.length - 1; j >= 0; j--)
+        currentMode = 'alterAttributesToApply';
+
+        for(var attributeId = 0; attributeId < attributesToApply.length; attributeId++)
         {
-          if (line.listLevel <= lists[j][0])
+          if(typeof(attributesToApply[attributeId]) !== 'undefined')
           {
-            whichList = j;
+            attributesToApply[attributeId] = 'leftoverAttribute';
           }
         }
       }
 
-      if (whichList >= lists.length)
+      //at this point we have to be in alterAppliedAttributes mode
+      var attributeId = parseInt(regExpMatch[1], 36);
+      
+      if(typeof(attributesToApply[attributeId]) === 'undefined')
       {
-        lists.push([line.listLevel, line.listTypeName]);
-        pieces.push('<ul><li>', lineContent || '<br>');
-      }
-      else if (whichList == -1)
-      {
-        if (line.text)
-        {
-          // non-blank line, end all lists
-          pieces.push(new Array(lists.length + 1).join('</li></ul\n>'));
-          lists.length = 0;
-          pieces.push(lineContent, '<br>');
-        }
-        else
-        {
-          pieces.push('<br><br>');
-        }
+        attributesToApply[attributeId] = 'newlyAddedAttribute';
       }
       else
       {
-        while (whichList < lists.length - 1)
-        {
-          pieces.push('</li></ul>');
-          lists.length--;
-        }
-        pieces.push('</li><li>', lineContent || '<br>');
+        attributesToApply[attributeId] = 'remainingAttribute'; //do we need this ?
       }
     }
-    else
+    else if(regExpMatch = currentOperation.match(/^(?:\|([a-zA-Z0-9]+))?\+([a-zA-Z0-9]+)$/))
     {
-      pieces.push(lineContent, '<br>');
+      //if we are currentliy in alterAppliedAttributes mode, switch to applyAttributesMode
+      if(currentMode === 'alterAttributesToApply')
+      {
+        currentMode = 'applyAttributes';
+
+        //remove all attributes which are leftover from the second last alterAppliedAttributes turn and push the appropriate close tags
+        for(var attributeId = 0; attributeId < attributesToApply.length; attributeId++)
+        {
+          if(attributesToApply[attributeId] === 'leftoverAttribute')
+          {
+            //handle the case that the closing tag follows a newline
+            var lastPiece = pieces.pop();
+
+            if(lastPiece.match(/\n$/))
+            {
+              pieces.push(attributes[attributeId].latexCloseTag + lastPiece);
+            }
+            else
+            {
+              pieces.push(lastPiece);
+              pieces.push(attributes[attributeId].latexCloseTag);
+            }
+
+            attributesToApply[attributeId] = undefined;
+          }
+        }
+
+        //now look, which tags we have to open for newly added attributes
+        for(var attributeId = 0; attributeId < attributesToApply.length; attributeId++)
+        {
+          if(attributesToApply[attributeId] === 'newlyAddedAttribute')
+          {
+            pieces.push(attributes[attributeId].latexOpenTag);
+            attributesToApply[attributeId] = 'remainingAttribute'; 
+          }
+        }
+      }
+
+      //put out the text
+      pieces.push(atext.text.slice(currentCursorPosition, currentCursorPosition + parseInt(regExpMatch[2], 36) ));
+      
+      //update to current cursor
+      currentCursorPosition += parseInt(regExpMatch[2], 36);
     }
   }
-  pieces.push(new Array(lists.length + 1).join('</li></ul>'));
 
   return pieces.join('');
 }
@@ -412,120 +288,4 @@ exports.getPadLatexDocument = function (padId, revNum, callback)
       callback(err, head + latex + foot);
     });
   });
-}
-
-function _escapeLatex(s)
-{
-  var re = /[&<>]/g;
-  if (!re.MAP)
-  {
-    // persisted across function calls!
-    re.MAP = {
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-    };
-  }
-  
-  s = s.replace(re, function (c)
-  {
-    return re.MAP[c];
-  });
-  
-  return s.replace(/[^\x21-\x7E\s\t\n\r]/g, function(c)
-  {
-    return "&#" +c.charCodeAt(0) + ";"
-  });
-}
-
-// copied from ACE
-
-
-function _processSpaces(s)
-{
-  var doesWrap = true;
-  if (s.indexOf("<") < 0 && !doesWrap)
-  {
-    // short-cut
-    return s.replace(/ /g, '&nbsp;');
-  }
-  var parts = [];
-  s.replace(/<[^>]*>?| |[^ <]+/g, function (m)
-  {
-    parts.push(m);
-  });
-  if (doesWrap)
-  {
-    var endOfLine = true;
-    var beforeSpace = false;
-    // last space in a run is normal, others are nbsp,
-    // end of line is nbsp
-    for (var i = parts.length - 1; i >= 0; i--)
-    {
-      var p = parts[i];
-      if (p == " ")
-      {
-        if (endOfLine || beforeSpace) parts[i] = '&nbsp;';
-        endOfLine = false;
-        beforeSpace = true;
-      }
-      else if (p.charAt(0) != "<")
-      {
-        endOfLine = false;
-        beforeSpace = false;
-      }
-    }
-    // beginning of line is nbsp
-    for (var i = 0; i < parts.length; i++)
-    {
-      var p = parts[i];
-      if (p == " ")
-      {
-        parts[i] = '&nbsp;';
-        break;
-      }
-      else if (p.charAt(0) != "<")
-      {
-        break;
-      }
-    }
-  }
-  else
-  {
-    for (var i = 0; i < parts.length; i++)
-    {
-      var p = parts[i];
-      if (p == " ")
-      {
-        parts[i] = '&nbsp;';
-      }
-    }
-  }
-  return parts.join('');
-}
-
-
-// copied from ACE
-var _REGEX_WORDCHAR = /[\u0030-\u0039\u0041-\u005A\u0061-\u007A\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u00FF\u0100-\u1FFF\u3040-\u9FFF\uF900-\uFDFF\uFE70-\uFEFE\uFF10-\uFF19\uFF21-\uFF3A\uFF41-\uFF5A\uFF66-\uFFDC]/;
-var _REGEX_SPACE = /\s/;
-var _REGEX_URLCHAR = new RegExp('(' + /[-:@a-zA-Z0-9_.,~%+\/\\?=&#;()$]/.source + '|' + _REGEX_WORDCHAR.source + ')');
-var _REGEX_URL = new RegExp(/(?:(?:https?|s?ftp|ftps|file|smb|afp|nfs|(x-)?man|gopher|txmt):\/\/|mailto:)/.source + _REGEX_URLCHAR.source + '*(?![:.,;])' + _REGEX_URLCHAR.source, 'g');
-
-// returns null if no URLs, or [[startIndex1, url1], [startIndex2, url2], ...]
-
-
-function _findURLs(text)
-{
-  _REGEX_URL.lastIndex = 0;
-  var urls = null;
-  var execResult;
-  while ((execResult = _REGEX_URL.exec(text)))
-  {
-    urls = (urls || []);
-    var startIndex = execResult.index;
-    var url = execResult[0];
-    urls.push([startIndex, url]);
-  }
-
-  return urls;
 }

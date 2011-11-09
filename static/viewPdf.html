@@ -48,7 +48,7 @@
         async: false
       }).responseText;      
 
-      if(revisionHead > queryParameters['revision'])
+      if(parseInt(revisionHead) > parseInt(queryParameters['revision']))
       {
         var anchorLink = location.href.split('?')[0] + '?padId=' + queryParameters['padId'] + '&revision=' + revisionHead;
 
