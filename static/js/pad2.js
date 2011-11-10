@@ -227,6 +227,12 @@ function handshake()
       clientVars.userAgent = "Anonymous";
       clientVars.collab_client_vars.clientAgent = "Anonymous";
 
+      //eval the hook functions, which were converted to strings before sending them via JSON
+      if(clientVars.hooks !== undefined) {
+        for(i in clientVars.hooks)
+          for(j in clientVars.hooks[i])
+            eval("clientVars.hooks['" + i.toString() + "'][" + j.toString() + "].hookFunction = " + clientVars.hooks[i][j].hookFunction);}
+
       //initalize the pad
       pad.init();
       initalized = true;

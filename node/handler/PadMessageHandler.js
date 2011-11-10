@@ -29,6 +29,7 @@ var securityManager = require("../db/SecurityManager");
 var log4js = require('log4js');
 var os = require("os");
 var messageLogger = log4js.getLogger("message");
+var plugins = require('../utils/Plugins');
 
 /**
  * A associative array that translates a session to a pad
@@ -799,7 +800,28 @@ function handleClientReady(client, message)
         "abiwordAvailable": abiwordAvailable, 
         "hooks": {}
       }
-      
+
+      // Extract the client hooks and put them into clientVars.hooks (according to like etherpad stored them)
+      for (i in plugins) {
+        for(j in plugins[i].clientHooks) {
+          if(clientVars.hooks[j] === undefined) 
+            clientVars.hooks[j] = [];
+
+          // This is almost the same as in etherpad, except the "hookFunction" entry
+          clientVars.hooks[j].push({
+            "hook":j,
+            "plugin":i,
+            "type":"client",
+            "hookFunction":plugins[i].clientHooks[j]
+          });
+        }
+      }
+
+      // In order to send the hook functions via JSON we need 'toString' them first
+      for(i in clientVars.hooks)
+        for(j in clientVars.hooks[i])
+          clientVars.hooks[i][j].hookFunction = clientVars.hooks[i][j].hookFunction.toString();
+
       //Add a username to the clientVars if one avaiable
       if(authorName != null)
       {
