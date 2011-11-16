@@ -16,6 +16,10 @@
   <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.4/jquery.js"></script>
   <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.16/jquery-ui.js"></script>
   <!-- end jQuery -->
+  <!-- widgets  -->
+  <script src="../static/js/widgets.js"></script>
+  <link href="../static/css/widgets.css" rel="stylesheet">
+  <!-- end widgets -->
   <script src="../socket.io/socket.io.js"></script>
   <script src="../minified/pad.js"></script>
   <link href="../static/custom/pad.css" rel="stylesheet">
@@ -176,7 +180,146 @@
 <div id="editorcontainer" style="width:auto; right:250px">
   <!-- -->
 </div>
-<div id="widgetcontainer" style="width:250px; right: 0px; top: 36px; bottom: 0px;  position: absolute;"></div>
+<div id="widgetcontainer" style="width:250px; right: 0px; top: 36px; bottom: 0px;  position: absolute;">
+  <div id="accordionContainer" class="ui-widget">
+    <div id="accordion">
+      <h3><a href="#">Meta Informations</a></h3>
+      <div style="position:relative; padding-left: 10px; padding-right: 5px;">
+        <div id="metaInformationsCommandBar" style="position:relative; top:0px">
+          <a style="position:absolute; right:0px" class="ui-icon ui-icon-wrench" href="javascript:handleUserInterfaceEvent({
+            origin: 'metaInformationsCommandBar.AddButton',
+            parameters: {
+            }
+          })"></a>
+          <a style="position:absolute; right:16px" class="ui-icon ui-icon-minus" href="javascript:handleUserInterfaceEvent({
+            origin: 'metaInformationsCommandBar.AddButton',
+            parameters: {
+            }
+          })"></a>
+          <a style="position:absolute; right:32px" class="ui-icon ui-icon-plus" href="javascript:handleUserInterfaceEvent({
+            origin: 'metaInformationsCommandBar.AddButton',
+            parameters: {
+            }
+          })"></a>
+        </div>
+        <div style="overflow:auto; position:absolute; left:10px; right:10px; top:32px; bottom:10px;" class="ui-widget-content">
+          <ol id="metaInformationsList" style="border:0px; ">
+            <li id="metaInformationsListElement_1" style="border:0px" class="ui-widget-content">Author (Travato)</li>
+            <li id="metaInformationsListElement_2" style="border:0px" class="ui-widget-content">Author (Tobin)</li>
+            <li id="metaInformationsListElement_3" style="border:0px" class="ui-widget-content">Author (Thorvald)</li>
+            <li id="metaInformationsListElement_4" style="border:0px" class="ui-widget-content">Author (Leipuner)</li>
+            <li id="metaInformationsListElement_5" style="border:0px" class="ui-widget-content">Author (Fogarty)</li>
+            <li id="metaInformationsListElement_6" style="border:0px" class="ui-widget-content">Author (Palmer)</li>
+            <li id="metaInformationsListElement_7" style="border:0px" class="ui-widget-content">Titel</li>
+            <li id="metaInformationsListElement_8" style="border:0px" class="ui-widget-content">Keywords</li>
+            <li id="metaInformationsListElement_9" style="border:0px" class="ui-widget-content">General Terms</li>
+            <li id="metaInformationsListElement_10" style="border:0px" class="ui-widget-content">Categories</li>
+            <li id="metaInformationsListElement_11" style="border:0px" class="ui-widget-content">Subject Descriptors</li>
+          </ol>
+        </div>
+      </div>
+      <h3><a href="#">Bibliography</a></h3>
+      <div style="position:relative; padding-left: 10px; padding-right: 5px;">
+        <div id="bibliographyCommandBar" style="position:relative; top:0px">
+          <a style="position:absolute; right:0px" class="ui-icon ui-icon-wrench" href="javascript:handleUserInterfaceEvent({
+            origin: 'bibliographyCommandBar.AddButton',
+            parameters: {
+            }
+          })"></a>
+          <a style="position:absolute; right:16px" class="ui-icon ui-icon-minus" href="javascript:handleUserInterfaceEvent({
+            origin: 'bibliographyCommandBar.AddButton',
+            parameters: {
+            }
+          })"></a>
+          <a style="position:absolute; right:32px" class="ui-icon ui-icon-plus" href="javascript:handleUserInterfaceEvent({
+            origin: 'bibliographyCommandBar.AddButton',
+            parameters: {
+            }
+          })"></a>
+          <a style="position:absolute; left:0px" class="ui-icon ui-icon-circle-arrow-w" href="javascript:handleUserInterfaceEvent({
+            origin: 'bibliographyCommandBar.AddButton',
+            parameters: {
+            }
+          })"></a>
+        </div>
+        <div style="overflow:auto; position:absolute; left:10px; right:10px; top:32px; bottom:10px;" class="ui-widget-content">
+          <ol id="bibliographyList" style="border:0px; " class="myList">
+            <li id="bibliographyListElement_1" style="border:0px" class="ui-widget-content">Beginning JavaScript and CSS Development with jQuery (R. York)</li>
+            <li id="bibliographyListElement_2" style="border:0px" class="ui-widget-content">More Eric Meyer on CSS (E. Meyer)</li>
+            <li id="bibliographyListElement_3" style="border:0px" class="ui-widget-content">Stunning CSS 3 (Z. Gillenwater)</li>
+            <li id="bibliographyListElement_4" style="border:0px" class="ui-widget-content">Transcending CSS (A. Clarke)</li>
+            <li id="bibliographyListElement_5" style="border:0px" class="ui-widget-content">JavaScript - The good parts (D. Crockford)</li>
+            <li id="bibliographyListElement_6" style="border:0px" class="ui-widget-content">Learning jQuery (K.Chaffer, K. Swedberg)</li>
+            <li id="bibliographyListElement_7" style="border:0px" class="ui-widget-content">jQuery UI 1.7 (D. Wellman)</li>
+            <li id="bibliographyListElement_8" style="border:0px" class="ui-widget-content">Version Control with Git (J. Loeliger)</li>
+            <li id="bibliographyListElement_9" style="border:0px" class="ui-widget-content">Pragmatic Version Control using Git (T. Swicegood)</li>
+            <li id="bibliographyListElement_10" style="border:0px" class="ui-widget-content">Pro Git (S. Chacon)</li>
+            <li id="bibliographyListElement_11" style="border:0px" class="ui-widget-content">The Principles of beatiful Web design (J. Beaird)</li>
+          </ol>
+        </div>
+      </div>
+      <h3><a href="#">Graphics</a></h3>
+      <div style="position:relative; padding-left: 10px; padding-right: 5px;">
+        <div id="graphicsCommandBar" style="position:relative; top:0px">
+          <a title="Configure image" style="position:absolute; right:0px" class="ui-icon ui-icon-wrench" href="javascript:handleUserInterfaceEvent({
+            origin: 'graphicsCommandBar.AddButton',
+            parameters: {
+            }
+          })"></a>
+          <a title="Remove image" style="position:absolute; right:16px" class="ui-icon ui-icon-minus" href="javascript:handleUserInterfaceEvent({
+            origin: 'graphicsCommandBar.DeleteButton',
+            parameters: {
+            }
+          })"></a>
+          <a title="Add image" style="position:absolute; right:32px" class="ui-icon ui-icon-plus" href="javascript:handleUserInterfaceEvent({
+            origin: 'graphicsCommandBar.AddButton',
+            parameters: {
+            }
+          })"></a>
+          <a title="Insert image in text" style="position:absolute; left:0px" class="ui-icon ui-icon-circle-arrow-w" href="javascript:handleUserInterfaceEvent({
+            origin: 'graphicsCommandBar.AddButton',
+            parameters: {
+            }
+          })"></a>
+          <a title="Show image" style="position:absolute; right:48px" class="ui-icon ui-icon-zoomin" href="javascript:handleUserInterfaceEvent({
+            origin: 'graphicsCommandBar.ZoominButton',
+            parameters: {
+            }
+          })"></a>
+        </div>
+        <div style="overflow:auto; position:absolute; left:10px; right:10px; top:32px; bottom:10px;" class="ui-widget-content">
+          <ul id="graphicsList" style="border:0px; position:relative" class="myList">
+            <li style="" class="ui-widget-content">
+              <div class="ui-widget-header" >Bart Simpson</div>
+              <img src="graphics/Bart_Simpson.png" height="96" //>
+            </li>
+            <li style="" class="ui-widget-content">
+              <div class="ui-widget-header">Homer Simpson</div>
+              <img src="graphics/homersimpson.png" height="96" //>
+            </li>
+            <li style="" class="ui-widget-content">
+              <div class="ui-widget-header">Marge Simpson</div>
+              <img src="graphics/marge_simpson.png" height="96" //>
+            </li>
+            <li style="" class="ui-widget-content">
+              <div class="ui-widget-header">Lisa Simpson</div>
+              <img src="graphics/Lisa_Simpson.png" height="96" //>
+            </li>
+            <li style="" class="ui-widget-content">
+              <div class="ui-widget-header">Maggie Simpson</div>
+              <img src="graphics/maggie-simpson.png" height="96" //>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <h3><a href="#">Chat</a></h3>
+      <div id="chatDiv" title="Dialog">
+      <p>Cras dictum. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Aenean lacinia mauris vel est. </p><p>Suspendisse eu nisl. Nullam ut libero. Integer dignissim consequat lectus. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. </p>
+      </div>
+    </div> <!-- end accordion div -->
+  </div>   <!-- end accordion container div -->
+</div>     <!-- end widget container div -->
+
 <div id="editorloadingbox">
   Loading...
 </div>
