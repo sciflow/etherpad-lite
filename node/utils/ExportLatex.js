@@ -81,11 +81,29 @@ function getPadLatex(pad, revNum, callback)
   });
 }
 
+function generateExportTags(attributeName, attributeValue, tagType)
+{
+  if(attributeName === 'bold')                return (tagType === 'openTag') ? '\\textbf{'                           : '}';
+  else if (attributeName === 'italic')        return (tagType === 'openTag') ? '\\textit{'                           : '}';
+  else if (attributeName === 'underline')     return (tagType === 'openTag') ? '\\underline{'                        : '}';
+  else if (attributeName === 'strikethrough') return (tagType === 'openTag') ? '\\sout{'                             : '}';
+  else if (attributeName === 'heading1')      return (tagType === 'openTag') ? '\\chapter{'                          : '}\n';
+  else if (attributeName === 'heading2')      return (tagType === 'openTag') ? '\\section{'                          : '}\n';
+  else if (attributeName === 'heading3')      return (tagType === 'openTag') ? '\\subsection{'                       : '}\n';
+  else if (attributeName === 'heading4')      return (tagType === 'openTag') ? '\\subsubsection{'                    : '}\n';
+  else if (attributeName === 'heading5')      return (tagType === 'openTag') ? '\\paragraph{'                        : '}\n';
+  else if (attributeName === 'heading6')      return (tagType === 'openTag') ? '\\subparagraph{'                     : '}\n';
+  else if (attributeName === 'graphic')
+    return (tagType === 'openTag') ? '\\includegraphics{' + JSON.parse(attributeValue).url                           : '}';
+  else if (attributeName === 'cite')          return (tagType === 'openTag') ? '\\cite{'            + attributeValue : '}';
+  else if (attributeName === 'footnote')      return (tagType === 'openTag') ? '\\footnote{'        + attributeValue : '}';
+  else return '';
+}
+
 function getLatexFromAtext(pad, atext)
 {
+  // get the attribute pool
   var attributePool = pad.apool();
-  var textLines = atext.text.slice(0, -1).split('\n');
-  var attribLines = Changeset.splitAttributionLines(atext.attribs, atext.text);
 
   // build the attributes array which we will need through out the export
   var attributes = [];
@@ -94,46 +112,16 @@ function getLatexFromAtext(pad, atext)
   {
     var attributeId = attributePool.attribToNum[attribute];
     var attributeName = String(attribute).split(',')[0];
-    var attributeValue = String(attribute).split(',')[1]; 
+    var attributeValue = String(attribute).split(',')[1];
 
-    attributes[attributeId] =
-    {
-      name: attributeName,
-      value: attributeValue,
-      currentState: 'FALSE'
-    };
-  }
+    attributes[attributeId] = {};
 
-  // for the attributes we want to appear in our output, add the corresponding latex tags
-  var attributeToLatexTagMapping = {
-    bold:          { openTag: '\\textbf{',        closeTag: '}' },
-    italic:        { openTag: '\\textit{',        closeTag: '}' },
-    underline:     { openTag: '\\underline{',     closeTag: '}' },
-    strikethrough: { openTag: '\\sout{',          closeTag: '}' },
-    heading1:      { openTag: '\\chapter{',       closeTag: '}\n' },
-    heading2:      { openTag: '\\section{',       closeTag: '}\n' },
-    heading3:      { openTag: '\\subsection{',    closeTag: '}\n' },
-    heading4:      { openTag: '\\subsubsection{', closeTag: '}\n' },
-    heading5:      { openTag: '\\paragraph{',     closeTag: '}\n' },
-    heading6:      { openTag: '\\subparagraph{',  closeTag: '}\n' },
-  };
+    attributes[attributeId].name = attributeName;
+    attributes[attributeId].value = attributeValue;
+    attributes[attributeId].currentState = undefined;
 
-  for(var attributeId in attributes)
-  {
-    attributes[attributeId].latexOpenTag = '';
-    attributes[attributeId].latexCloseTag = '';
-   
-    if(typeof(attributeToLatexTagMapping[attributes[attributeId].name]) !== 'undefined') 
-    {
-      attributes[attributeId].latexOpenTag = attributeToLatexTagMapping[attributes[attributeId].name].openTag;
-      attributes[attributeId].latexCloseTag = attributeToLatexTagMapping[attributes[attributeId].name].closeTag;
-    }
-    // we can put latex tags around some more special attributes too
-    else if(attributes[attributeId].name === 'author')
-    {
-      //attributes[attributeId].latexOpenTag = '<span class="author-' + attributes[attributeId].value.replace(/\./g,'-') + '">';
-      //attributes[attributeId].latexCloseTag = '</span>';
-    }
+    attributes[attributeId].openTag = generateExportTags(attributeName, attributeValue, 'openTag');
+    attributes[attributeId].closeTag = generateExportTags(attributeName, attributeValue, 'closeTag');
   }
 
   var pieces = [];
@@ -143,7 +131,6 @@ function getLatexFromAtext(pad, atext)
 
   var currentMode = 'alterAttributesToApply';
   var currentCursorPosition = 0;
-  var attributesToApply = []; //an object with members referenced by the attributeId
 
   //we need to declare these in order for them not to be global
   var currentOperation = undefined;
@@ -158,11 +145,11 @@ function getLatexFromAtext(pad, atext)
       {
         currentMode = 'alterAttributesToApply';
 
-        for(var attributeId = 0; attributeId < attributesToApply.length; attributeId++)
+        for(var attributeId in attributes)
         {
-          if(typeof(attributesToApply[attributeId]) !== 'undefined')
+          if(typeof(attributes[attributeId].currentState) !== 'undefined')
           {
-            attributesToApply[attributeId] = 'leftoverAttribute';
+            attributes[attributeId].currentState = 'leftoverAttribute';
           }
         }
       }
@@ -170,13 +157,13 @@ function getLatexFromAtext(pad, atext)
       //at this point we have to be in alterAppliedAttributes mode
       var attributeId = parseInt(regExpMatch[1], 36);
       
-      if(typeof(attributesToApply[attributeId]) === 'undefined')
+      if(typeof(attributes[attributeId].currentState) === 'undefined')
       {
-        attributesToApply[attributeId] = 'newlyAddedAttribute';
+        attributes[attributeId].currentState = 'newlyAddedAttribute';
       }
       else
       {
-        attributesToApply[attributeId] = 'remainingAttribute'; //do we need this ?
+        attributes[attributeId].currentState = 'remainingAttribute'; //do we need this ?
       }
     }
     else if(regExpMatch = currentOperation.match(/^(?:\|([a-zA-Z0-9]+))?\+([a-zA-Z0-9]+)$/))
@@ -187,34 +174,34 @@ function getLatexFromAtext(pad, atext)
         currentMode = 'applyAttributes';
 
         //remove all attributes which are leftover from the second last alterAppliedAttributes turn and push the appropriate close tags
-        for(var attributeId = 0; attributeId < attributesToApply.length; attributeId++)
+        for(var attributeId in attributes)
         {
-          if(attributesToApply[attributeId] === 'leftoverAttribute')
+          if(attributes[attributeId].currentState === 'leftoverAttribute')
           {
             //handle the case that the closing tag follows a newline
             var lastPiece = pieces.pop();
 
             if(lastPiece.match(/\n$/))
             {
-              pieces.push(attributes[attributeId].latexCloseTag + lastPiece);
+              pieces.push(attributes[attributeId].closeTag + lastPiece);
             }
             else
             {
               pieces.push(lastPiece);
-              pieces.push(attributes[attributeId].latexCloseTag);
+              pieces.push(attributes[attributeId].closeTag);
             }
 
-            attributesToApply[attributeId] = undefined;
+            attributes[attributeId].currentState = undefined;
           }
         }
 
         //now look, which tags we have to open for newly added attributes
-        for(var attributeId = 0; attributeId < attributesToApply.length; attributeId++)
+        for(var attributeId in attributes)
         {
-          if(attributesToApply[attributeId] === 'newlyAddedAttribute')
+          if(attributes[attributeId].currentState === 'newlyAddedAttribute')
           {
-            pieces.push(attributes[attributeId].latexOpenTag);
-            attributesToApply[attributeId] = 'remainingAttribute'; 
+            pieces.push(attributes[attributeId].openTag);
+            attributes[attributeId].currentState = 'remainingAttribute'; 
           }
         }
       }
