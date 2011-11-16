@@ -1,3 +1,66 @@
+// command is an object containing the command name and the parameters
+exports.handleCommand = function (command)
+{
+
+  //check if this is a supported command
+  if(!(command.name.match(/^(?:changeHeading|addGraphic|addCite)$/)))
+  {
+    return;
+  }
+
+  //handle changeHeading
+  if(command.name === 'changeHeading')
+  {
+
+  }
+  //handle addGraphic
+  else if(command.name === 'addGraphic')
+  {
+    // replace the current selection with a space character
+    padeditor.ace.callWithAce(function (ace)
+    {
+      var rep = ace.ace_getRep();
+     
+      ace.ace_replaceRange(rep.selStart, rep.selEnd, ' ');
+    });
+
+    // After doing the replace, the current selection has changed. There is no
+    // selection anymore, but the selStart and selEnd point to the same location
+    // which is right after the last replaced character. In order to get the
+    // inserted space, we have to go 1 character back from that position.
+    padeditor.ace.callWithAce(function (ace)
+    {
+      var rep = ace.ace_getRep();
+
+      // After doing the replace, the current selection has changed. There is no
+      // selection anymore, but the selStart and selEnd point to the same location
+      // which is right after the last replaced character. In order to get the
+      // inserted space, we have to go 1 character back from that position.
+      if(rep.selStart[1] > -1)
+      {
+        rep.selStart[1]--;
+      }
+      else
+      {
+        return; //this should never happen
+      }
+
+      ace.ace_setAttributeOnSelection('graphic', JSON.stringify(command.parameters));
+
+      rep.selStart[1]++;
+
+    },'additional-markup');  //till now I dont understand the semantics of etherpads callstack mechanism, but it has to be at *this* point
+
+  }
+  //handle addCite
+  else if(command.name === 'addCite')
+  {
+
+  }
+
+   var regExpmatch = 'foo'.match(/^bla/);
+}
+
 //TODO: Find a better name for this
 exports.entryPoint = function (arg) {
 
@@ -68,6 +131,10 @@ exports.entryPoint = function (arg) {
 
 exports.aceAttribsToClasses = function(args) {
 
+  if(args.key === 'graphic') return ['graphic:' + args.value];
+  else if(args.key === 'cite') return ['cite'];
+  else if(args.key === 'footnote') return ['footnote'];
+
   if (args.key == 'heading1' && args.value != "")
     return ["headings:h1"];
 
@@ -89,6 +156,20 @@ exports.aceAttribsToClasses = function(args) {
 
 exports.aceCreateDomLine = function(args) {
 
+  if(args.cls.indexOf('graphic') >= 0)
+  {
+    var result = {};
+
+    result.cls = args.cls.replace(/(^| )graphic:(\{[^\}]+\})/, function(matchedSubstring, space, graphicParameters)
+    {
+      result.extraOpenTags = '<img src="' + JSON.parse(graphicParameters).url + '">';
+      result.extraCloseTags = '</img>';
+      return space + 'graphic';
+    });
+
+    return [result];
+
+  };      
   if (args.cls.indexOf('headings:') >= 0) {
     cls = args.cls.replace(/(^| )headings:(\S+)/g, function(x0, space, typOfHeading) { return space + typOfHeading; });
     return [{cls: cls, extraOpenTags: '', extraCloseTags: ''}];

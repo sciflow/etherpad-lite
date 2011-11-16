@@ -1,7 +1,7 @@
 /* This file must be valid JSON. But comments are allowed */
 {
-  "name": "Headings Plugin",
-  "description" : "Plugin which supports headings in Etherpad-lite",
+  "name": "Additional markup plugin",
+  "description" : "Plugin which supports additional markup (such as headings or images) in Etherpad-lite",
   "version" : "0.0.1",
   "isEnabled" : true
 }
