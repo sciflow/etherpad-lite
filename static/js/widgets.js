@@ -98,6 +98,13 @@ function handleUserInterfaceEvent(event)
   {
     alert('You clicked the "Add Button" on on the metaInformations command bar!');
   }
+  else if(event.origin === 'graphicsCommandBar.InsertButton')
+  {
+    var selectedImage = $('#graphicsList li.ui-selected').find('img');
+
+    //call the additional markup plugin
+    plugins.callHook('handleCommand', {name: 'addGraphic', parameters: { url: $(selectedImage).attr('src') } });
+  }
   else if(event.origin === 'graphicsCommandBar.ZoominButton')
   {
     var selectedImage = $('#graphicsList li.ui-selected').find('img');
