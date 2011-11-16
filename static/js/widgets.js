@@ -6,6 +6,18 @@ $(function() {
 });
 
 $(function() {
+  $('#headingSelector').selectmenu({
+    width: '150px' 
+  });
+
+  $('#headingSelector-button').css({
+    'position' : 'absolute',
+    'left' : '370px',
+    'z-index' : '1'
+  });
+});
+
+$(function() {
         $( "#accordion" ).accordion({
                 fillSpace: true
         });
