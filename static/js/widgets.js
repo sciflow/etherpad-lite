@@ -1,3 +1,6 @@
+//set intervall functions
+window.setInterval("updateUiWidgets()", 5000);
+
 //set the window resize handler
 $(function() {
   $(window).resize(function() {
@@ -5,6 +8,7 @@ $(function() {
   });
 });
 
+//create the heading selector select menu
 $(function() {
   $('#headingSelector').selectmenu({
     width: '150px'
@@ -17,24 +21,43 @@ $(function() {
   });
 });
 
+//create to accordion on the right side
 $(function() {
-        $( "#accordion" ).accordion({
-                fillSpace: true
-        });
+  $( "#accordion" ).accordion({
+    fillSpace: true
+  });
 });
 
-
-
-/*
+//create the selectable metaInformations list inside the accordion
 $(function() {
-        $( "#accordionResizer" ).resizable({
-                minHeight: 140,
-                resize: function() {
-                        $( "#accordion" ).accordion( "resize" );
-                }
-        });
+  $( "#metaInformationsList" ).selectable();
 });
-*/
+
+//create the selectable bibliography list inside the accordion
+$(function() {
+  $( "#bibliographyList" ).selectable();
+});
+
+//create the selectable graphics list inside the accordion
+$(function() {
+  $( "#graphicsList a.ui-icon-zoomin" ).click(function( event ) {
+    var $target = $(event.target);
+
+    $('<div><img src=' + $target.attr('href') + ' /></div>').dialog(
+    {
+      autoOpen: true,
+      title: 'Preview',
+      modal: true,
+      width: 400
+    });
+
+    return false;
+  });
+});
+
+//call updateUiWidgets the first time (will be call by setInterval later on)
+window.setTimeout("updateUiWidgets()", 2000);
+
 function updateUiWidgets()
 {
   var padId;
@@ -111,36 +134,6 @@ function updateUiWidgets()
 
   var foo = 'bar';
 }
-
-$(function() {
-        $( "#metaInformationsList" ).selectable();
-});
-
-$(function() {
-        $( "#bibliographyList" ).selectable();
-});
-
-$(function() {
-  $( "#graphicsList a.ui-icon-zoomin" ).click(function( event ) {
-    var $item = $( this ), $target = $( event.target );
-
-    //viewLargerImage( $target );
-    
-    var imageView = $('<div><img src=' + $target.attr('href') + ' /></div>').dialog({autoOpen: true, title: 'Preview', modal: true, width: 400});
-    
-
-    return false;
-  });
-});
-
-$(function() {
-  $( "#graphicsList" ).selectable({
-    selected: function(event, ui)
-    {
-      var bla = event;
-    }
-  });
-});
   
 function viewLargerImage(listElement)
 {
@@ -392,6 +385,12 @@ function handleUserInterfaceEvent(event)
         data : JSON.stringify(requestParameter)
       });
       
+      //update the bibliography list
+      //$('#bibliographyList').append('<li id="' + receivedData[collection][element]['id']  + '" style="border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width:     0px; border-style: initial; border-color: initial; " class="ui-widget-content ui-selectee">' + receivedData[collection][element]['data']['title'] + '</li>');
+      
+      //TODO: replace with updating the bibliography list
+      updateUiWidgets();
+
       $(this).dialog("close");
 
     }
@@ -435,6 +434,31 @@ function handleUserInterfaceEvent(event)
     
     $(dialog).dialog('open');
   }  
+  else if(event.origin === 'bibliographyCommandBar.DeleteButton')
+  {
+    var item;
+
+    //get the element which should be deleted
+    var itemsToDelete = $('#bibliographyList li.ui-selected');
+
+    if(itemsToDelete.length === 0)
+    {
+      //there are no items selected
+      return;
+    }
+
+    for(item in itemsToDelete)
+    {
+      //try to delete the item using delete api calls
+      $.ajax({
+        url : '/api/2/pads/' + location.href.match(/p\/([0-9a-zA-Z_]+)$/)[1] + '/datastores/bibliography/' + $(itemsToDelete[item]).attr('id'),
+        type : 'DELETE',
+        async: false,
+      });
+
+      $(itemsToDelete[item]).remove();
+    }
+  }
   else if(event.origin === 'graphicsCommandBar.ZoominButton')
   {
     var selectedImage = $('#graphicsList li.ui-selected').find('img');
