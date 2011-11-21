@@ -35,6 +35,82 @@ $(function() {
         });
 });
 */
+function updateUiWidgets()
+{
+  var padId;
+
+  //try to get the padId out of location.href
+  if(!(padId = location.href.match(/p\/([0-9a-zA-Z_]+)$/)[1]))
+  {
+    //return if this fails
+    return;
+  }
+  
+  var receivedData = {
+    metaInformations : [],
+    bibliography : [],
+    graphics : []
+  };
+
+  //get metaInformations 
+  $.ajax({
+    url : '/api/2/pads/' + padId  + '/datastores/metaInformations',
+    dataType : 'json',
+    async : false,
+    success : function(result) { receivedData.metaInformations = result; }
+  });
+
+  //get the bibliography
+  $.ajax({
+    url : '/api/2/pads/' + padId  + '/datastores/bibliography',
+    dataType : 'json',
+    async : false,
+    success : function(result) { receivedData.bibliography = result; }
+  });
+
+  //get graphics list
+  $.ajax({
+    url : '/api/2/pads/' + padId  + '/datastores/graphics',
+    dataType : 'json',
+    async : false,
+    success : function(result) { receivedData.graphics = result; }
+  });
+
+  var collection, element;
+
+  for(collection in receivedData)
+  { 
+    for(element in receivedData[collection])
+    {
+      $.ajax({
+        url : '/api/2/pads/' + padId + '/datastores/' + collection + '/' + receivedData[collection][element],
+        dataType : 'json',
+        async : false,
+        success : function(result) { receivedData[collection][element] = { id: receivedData[collection][element], data : result }; }
+      });
+    }
+  }
+
+  //replace the content of the widget if there is data from the appropriate datastore
+  for(collection in receivedData)
+  {
+    if(typeof(receivedData[collection]) !== 'undefined' && receivedData[collection] !== null)
+    {
+      //remove all elements from the metaInformationsList (dirty hack using the collection id as DOM element id)
+      $('#' + collection + 'List li').remove();
+
+      for(element in receivedData[collection])
+      {
+        if(typeof(receivedData[collection][element]['data']) !== 'undefined' && typeof(receivedData[collection][element]['data']['title']) !== 'undefined')
+        {
+        $('#' + collection + 'List').append('<li id="' + receivedData[collection][element]['id']  + '" style="border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width: 0px; border-style: initial; border-color: initial; " class="ui-widget-content ui-selectee">' + receivedData[collection][element]['data']['title'] + '</li>');
+        }
+      }
+    }
+  }
+
+  var foo = 'bar';
+}
 
 $(function() {
         $( "#metaInformationsList" ).selectable();
@@ -58,7 +134,7 @@ $(function() {
 });
 
 $(function() {
-        $( "#graphicsList" ).selectable({
+  $( "#graphicsList" ).selectable({
     selected: function(event, ui)
     {
       var bla = event;
@@ -66,34 +142,6 @@ $(function() {
   });
 });
   
-$(function () {
-  // image preview function, demonstrating the ui.dialog used as a modal window
-  function viewLargerImage( $link ) {
-
-    $("#chatDiv").dialog("open");
-  
-    /*
-    var src = $link.attr( "href" ),
-      title = $link.siblings( "img" ).attr( "alt" ),
-      $modal = $( "img[src$='" + src + "']" );
-
-    if ( $modal.length ) {
-      $modal.dialog( "open" );
-    } else {
-      var img = $( "<img alt='" + title + "' width='384' height='288' style='display: none; padding: 8px;' />" )
-        .attr( "src", src ).appendTo( "body" );
-      setTimeout(function() {
-        img.dialog({
-          title: title,
-          width: 400,
-          modal: true
-        });
-      }, 1 );
-    }
-    */
-  }
-});
-
 function viewLargerImage(listElement)
 {
   //make this globar
@@ -320,18 +368,30 @@ function handleUserInterfaceEvent(event)
     
     var addButtonHandler = function()
     {
-      var imageTitle = $(this).find('input[name="title"]').val();
-      var imageUrl = $(this).find('input[name="url"]').val();
+      var dialog = $(this);
 
+      //build the parameter object used when calling the api
+      var requestParameter = {
+        bibliographyType : dialog.find('select[name="entryType"]').val(),
+        title : dialog.find('input[name="title"]').val(),
+        authors : dialog.find('input[name="authors"]').val(),
+        url : dialog.find('input[name="url"]').val(),
+        year : dialog.find('input[name="year"]').val(),
+        month : dialog.find('input[name="month"]').val(),
+        publisher : dialog.find('input[name="publisher"]').val(),
+        journal : dialog.find('input[name="journal"]').val()
+      };
       
-      var addedGraphic = $('#graphicsList').prepend('\
-      <li class="ui-widget-content">\
-        <div class="ui-widget-header" >' + imageTitle + '</div>\
-        <img src="' + imageUrl + '" height="96" //>\
-        </li>\
-      ');
+      $.ajax({
+        url : '/api/2/pads/' + location.href.match(/p\/([0-9a-zA-Z_]+)$/)[1] + '/datastores/bibliography',
+        type : 'POST',
+        dataType: 'json',
+        async : false,
+        processData: false,
+        contentType : 'application/json',
+        data : JSON.stringify(requestParameter)
+      });
       
-      //$(addedGraphic).find('li').show('highlight', 'slow', setTimeout($(this).dialog("close"),1));
       $(this).dialog("close");
 
     }
