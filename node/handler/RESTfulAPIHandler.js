@@ -420,18 +420,10 @@ function createDatastoreElement(req, res, handleResult)
   var elementId;
   var elementData;
 
-  //handle the "post to a datastore" case
+  //handle the "post to a datastore" case, which means that the elementId is created by the server
   if((regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/?$/)) && (req.method.match(/^post$/i)))
   {
-    //if there is no elementId given, create one
-    if(typeof(req.body.elementId) === 'undefined')
-    {
-      elementId = 'e.' +  randomString(16);
-    }
-    else
-    {
-      elementId = req.body.elementId;
-    }
+    elementId = 'e.' +  randomString(16);
 
     //if the content-type is not JSON, build the elementData object
     if(req.is('application/x-www-form-urlencoded') && typeof(req.body) === 'object')
@@ -442,36 +434,60 @@ function createDatastoreElement(req, res, handleResult)
       elementData = {};
 
       //we assume, that when the data comes www-form-urlencoded that the data is
-      //flat, so we need to build an object before storing this in the db. Therefor
-      //the req.body object is copied element by element to the elementData object,
-      //except for the elementId field.
+      //flat, so we need to build an object before storing this in the db.
       for(element in req.body)
       {
-        if(element !== 'elementId')
-        {
-          elementData[element] = req.body[element];
-        }
+        elementData[element] = req.body[element];
       }
     }
-    else if(req.is('json') && typeof(req.body) === 'object' && typeof(req.body.elementData) !== 'undefined')
+    else if(req.is('json') && typeof(req.body) === 'object')
     {
-      elementData = req.body.elementData;
+      elementData = req.body;
     }
 
-    if(typeof(req.body) === 'object' && typeof(elementData) !== 'undefined')
+    if(typeof(elementData) !== 'undefined')
     {
       //update the element list for that datastore
       db.get("pad:" + regExpResult[1] + ":datastores:" + regExpResult[2], function(err, result)
-      {
-        if(result.indexOf(elementId) === -1)
+      { 
+        //handle the case that such a datastore does not exist
+        if(typeof(result) === 'undefined')
+        {
+          //add the datastore to the list of datastores for that pad
+          db.get("pad:" + regExpResult[1] + ":datastores", function(err, result)
+          {
+            if(typeof(result) === 'undefined')
+            {
+              result = [ regExpResult[2] ];
+            }
+            else
+            {
+              result.push(regExpResult[2]);
+            }
+
+            db.set("pad:" + regExpResult[1] + ":datastores", result);
+          });
+
+          //create the element list for that datastore
+          db.set("pad:" + regExpResult[1] + ":datastores:" + regExpResult[2], [ elementId ]);
+
+          //store the received data
+          db.set("pad:" + regExpResult[1] + ":datastores:" + regExpResult[2] + ":" + elementId, elementData);
+          
+          //signal that everything's ok and return
+          res.send(200);
+          return;
+        }
+        else if(result.indexOf(elementId) === -1)
         {
           result.push(elementId);
           db.set("pad:" + regExpResult[1] + ":datastores:" + regExpResult[2], result);
-
+        
           //store the elementData object in the db
           db.set("pad:" + regExpResult[1] + ":datastores:" + regExpResult[2] + ":" + elementId, elementData);
 
           res.send(200);
+          return;
         }
         else
         {
