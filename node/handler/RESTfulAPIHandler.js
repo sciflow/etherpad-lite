@@ -545,7 +545,40 @@ function changeDatastoreElement(req, res, handleResult)
 
 function deleteDatastoreElement(req, res, handleResult)
 {
+  var regExpResult;
 
+  if(regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/?$/))
+  {
+    //get the element list for that datastore
+    db.get("pad:" + regExpResult[1] + ":datastores:" + regExpResult[2], function(err, result)
+    {
+      //if there exists such an element in that datastore, 
+      if(result.indexOf(regExpResult[3]) !== -1)
+      {
+        //use splice to remove the element from the list
+        result.splice(result.indexOf(regExpResult[3]), 1);
+
+        //update the element list in the db
+        db.set("pad:" + regExpResult[1] + ":datastores:" + regExpResult[2], result);
+
+        //remove the element from the datastore
+        db.remove("pad:" + regExpResult[1] + ":datastores:" + regExpResult[2] + ":" + regExpResult[3]);
+
+        res.send(200);
+        return;
+      }
+      else
+      {
+        res.send(404);
+        return;
+      }
+    });
+  }
+  else
+  {
+    res.send(403);
+    return;
+  }
 }
 
 /**
