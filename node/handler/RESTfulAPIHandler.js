@@ -115,7 +115,7 @@ exports.handleApiCall = function(req, res, next)
     {
       regEx: /^pads\/(?:[0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/revisions\/[0-9]+\/exports\/[0-9a-zA-Z_]+\/?$/,
       getHandler: exportPadRevision
-    }/*,
+    },
     {
       regEx: /^pads\/(?:[0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/?$/,
       getHandler: getListOfPadDatastores,
@@ -123,24 +123,17 @@ exports.handleApiCall = function(req, res, next)
       deleteHandler: deleteDatastores
     },
     {
-      regEx: /^pads\/(?:[0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/[0-9a-zA-Z]+\/?$/,
+      regEx: /^pads\/(?:[0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/[0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*\/?$/,
       getHandler: getListOfDatastoreElements,
       postHandler: createDatastoreElement,
       deleteHandler: deleteDatastore
     },
     {
-      regEx: /^pads\/(?:[0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/[0-9a-zA-Z]+\/[0-9a-zA-Z]+\/?$/,
+      regEx: /^pads\/(?:[0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/[0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*\/[0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*\/?$/,
       getHandler: getDatastoreElement,
-      putHandler: putDatastoreElement,
+      putHandler: changeDatastoreElement,
       deleteHandler: deleteDatastoreElement
-    },
-    {
-      regEx: /^pads\/(?:[0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/[0-9a-zA-Z]+\/[0-9a-zA-Z]+\/?$/,
-      getHandler: getDatastoreElement,
-      putHandler: putDatastoreElement,
-      deleteHandler: deleteDatastoreElement
-    },
-  */
+    }
   ];
 
   //lets figure out what the requester wants us to do
@@ -302,6 +295,241 @@ function exportPadRevision(req, res, handleResult)
   {
     res.send(404);
   }
+}
+
+function getListOfPadDatastores(req, res, handleResult)
+{
+  //which pad do we need to grab the datastores list for ?
+  if(regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/?$/))
+  {
+    db.get("pad:" + regExpResult[1] + ":datastores", function(err, result)
+    {
+      //make the result null if there are no datastores
+      result = (typeof(result) === 'undefined') ? null : result; 
+
+      res.header('Pragma', 'no-cache');
+      res.header('Cache-Control', 'no-cache');
+      handleResult(null, req, res, result);
+    });
+  }
+  else
+  {
+    res.send(403);
+  }
+}
+
+function createDatastore(req, res, handleResult)
+{
+  var regExpResult;
+  var datastoreId;
+
+  //check if the request contains a datastoreId or if we have to generate one
+  if(typeof(req.body) === 'undefined' || typeof(req.body.datastoreId) === 'undefined')
+  {
+    //there is no datastoreId, so let's generate one
+    datastoreId = 'd.' + randomString(16);
+  }
+  else
+  {
+    datastoreId = req.body.datastoreId;
+  }
+
+  //the results of that api call should not be cached by the client
+  res.header('Pragma', 'no-cache');
+  res.header('Cache-Control', 'no-cache');
+
+  //which pad do we need to create a datastore in ?
+  if(regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/?$/))
+  {
+    //check if a datastore with the given (or computed) datastoreId already exists
+    db.get("pad:" + regExpResult[1] + ":datastores:" + datastoreId, function(err, result)
+    {
+      //if the result is not undefined, than there is already such a datastore
+      if(typeof(result) !== 'undefined')
+      {
+        res.send('Datastore already exists!', 403);
+        return;
+      }
+      else
+      {
+        //update the datastores list of that pad (no need for async here, this and the next db.set can be executed parallel)
+        db.get("pad:" + regExpResult[1] + ":datastores", function(err, result)
+        {
+          //if there are no datastores for that pad yet, initialize the according array
+          if(typeof(result) !== 'object')
+          {
+            db.set("pad:" + regExpResult[1] + ":datastores", [datastoreId]);
+          }
+          //if there are already datastores for that pad, add the given datastoreId to the existing ones
+          else
+          {
+            //it should never happen, that there is a entry in the datastores list without a corresponding datastore, but for the sake of safety
+            if(result.indexOf(datastoreId) === -1)
+            {
+              result.push(datastoreId);
+            }
+
+            db.set("pad:" + regExpResult[1] + ":datastores", result);
+          }
+        });
+
+        //initialize the new datastores element list
+        db.set("pad:" + regExpResult[1] + ":datastores:" + datastoreId, []);
+      }
+
+      //response with datastoreId to signal a successfull operation 
+      handleResult(null, req, res, datastoreId);
+    });
+  }
+  else
+  {
+    res.send(403);
+  }
+}
+
+function deleteDatastores(req, res, handleResult)
+{
+
+}
+
+function getListOfDatastoreElements(req, res, handleResult)
+{
+  //which pad and which datastore we need to grab the element list for ?
+  if(regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/?$/))
+  {
+    db.get("pad:" + regExpResult[1] + ":datastores:" + regExpResult[2], function(err, result)
+    {
+      //make the result null if there is no such datastore
+      result = (typeof(result) === 'undefined') ? null : result;
+
+      res.header('Pragma', 'no-cache');
+      res.header('Cache-Control', 'no-cache');
+      handleResult(null, req, res, result);
+    });
+  }
+  else
+  {
+    res.send(403);
+    return;
+  }
+}
+
+function createDatastoreElement(req, res, handleResult)
+{
+  var regExpResult;
+  var elementId;
+  var elementData;
+
+  //handle the "post to a datastore" case
+  if((regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/?$/)) && (req.method.match(/^post$/i)))
+  {
+    //if there is no elementId given, create one
+    if(typeof(req.body.elementId) === 'undefined')
+    {
+      elementId = 'e.' +  randomString(16);
+    }
+    else
+    {
+      elementId = req.body.elementId;
+    }
+
+    //if the content-type is not JSON, build the elementData object
+    if(req.is('application/x-www-form-urlencoded') && typeof(req.body) === 'object')
+    {
+      var element;
+
+      //intialize elementData as an empty object
+      elementData = {};
+
+      //we assume, that when the data comes www-form-urlencoded that the data is
+      //flat, so we need to build an object before storing this in the db. Therefor
+      //the req.body object is copied element by element to the elementData object,
+      //except for the elementId field.
+      for(element in req.body)
+      {
+        if(element !== 'elementId')
+        {
+          elementData[element] = req.body[element];
+        }
+      }
+    }
+    else if(req.is('json') && typeof(req.body) === 'object' && typeof(req.body.elementData) !== 'undefined')
+    {
+      elementData = req.body.elementData;
+    }
+
+    if(typeof(req.body) === 'object' && typeof(elementData) !== 'undefined')
+    {
+      //update the element list for that datastore
+      db.get("pad:" + regExpResult[1] + ":datastores:" + regExpResult[2], function(err, result)
+      {
+        if(result.indexOf(elementId) === -1)
+        {
+          result.push(elementId);
+          db.set("pad:" + regExpResult[1] + ":datastores:" + regExpResult[2], result);
+
+          //store the elementData object in the db
+          db.set("pad:" + regExpResult[1] + ":datastores:" + regExpResult[2] + ":" + elementId, elementData);
+
+          res.send(200);
+        }
+        else
+        {
+          //http conflict
+          res.send(409);
+          return;
+        }
+      });
+    }
+    else
+    {
+      res.send('No object to store!', 403);
+      return;
+    }
+  }
+  else
+  {
+    res.send(403);
+    return;
+  }
+}
+
+function deleteDatastore(req, res, handleResult)
+{
+
+}
+
+function getDatastoreElement(req, res, handleResult)
+{
+  var regExpResult;
+
+  //which pad, which datastore and which element we need to grab ?
+  if(regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/?$/))
+  {
+    db.get("pad:" + regExpResult[1] + ":datastores:" + regExpResult[2] + ":" + regExpResult[3], function(err, result)
+    {
+      //make the result null if there is no such datastore
+      result = (typeof(result) === 'undefined') ? null : result;
+
+      handleResult(null, req, res, result);
+    });
+  }
+  else
+  {
+    res.send(403);
+    return;
+  }
+
+}
+
+function changeDatastoreElement(req, res, handleResult)
+{
+
+}
+
+function deleteDatastoreElement(req, res, handleResult)
+{
+
 }
 
 /**
