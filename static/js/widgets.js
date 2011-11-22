@@ -1,62 +1,69 @@
-//set intervall functions
-window.setInterval("updateUiWidgets()", 5000);
-
-//set the window resize handler
-$(function() {
-  $(window).resize(function() {
-    $('#accordion').accordion('resize');
-  });
-});
-
-//create the heading selector select menu
-$(function() {
-  $('#headingSelector').selectmenu({
-    width: '150px'
-  });
-
-  $('#headingSelector-button').css({
-    'position' : 'absolute',
-    'left' : '370px',
-    'z-index' : '1'
-  });
-});
-
-//create to accordion on the right side
-$(function() {
-  $( "#accordion" ).accordion({
-    fillSpace: true
-  });
-});
-
-//create the selectable metaInformations list inside the accordion
-$(function() {
-  $( "#metaInformationsList" ).selectable();
-});
-
-//create the selectable bibliography list inside the accordion
-$(function() {
-  $( "#bibliographyList" ).selectable();
-});
-
-//create the selectable graphics list inside the accordion
-$(function() {
-  $( "#graphicsList a.ui-icon-zoomin" ).click(function( event ) {
-    var $target = $(event.target);
-
-    $('<div><img src=' + $target.attr('href') + ' /></div>').dialog(
-    {
-      autoOpen: true,
-      title: 'Preview',
-      modal: true,
-      width: 400
+//call updateUiWidgets the first time when the document is ready (will be call by setInterval later on)
+$(document).ready(function()
+{
+  //create the heading selector select menu
+  $(function() {
+    $('#headingSelector').selectmenu({
+      width: '150px'
     });
 
-    return false;
+    $('#headingSelector-button').css({
+      'position' : 'absolute',
+      'left' : '370px',
+      'z-index' : '1'
+    });
   });
-});
 
-//call updateUiWidgets the first time (will be call by setInterval later on)
-window.setTimeout("updateUiWidgets()", 2000);
+  //create to accordion on the right side
+  $(function() {
+    $( "#accordion" ).accordion({
+      fillSpace: true
+    });
+  });
+
+  //set the window resize handler to resize also the accordion
+  $(function() {
+    $(window).resize(function() {
+      $('#accordion').accordion('resize');
+    });
+  });
+
+  //create the selectable metaInformations list inside the accordion
+  $(function() {
+    $( "#metaInformationsList" ).selectable();
+  });
+
+  //create the selectable bibliography list inside the accordion
+  $(function() {
+    $( "#bibliographyList" ).selectable();
+  });
+
+  //create the selectable graphics list inside the accordion
+  $(function() {
+    $( "#graphicsList" ).selectable();
+  });
+
+  $(function() {
+    $( "#graphicsList a.ui-icon-zoomin" ).click(function( event ) {
+      var $target = $(event.target);
+
+      $('<div><img src=' + $target.attr('href') + ' /></div>').dialog(
+      {
+        autoOpen: true,
+        title: 'Preview',
+        modal: true,
+        width: 400
+      });
+
+      return false;
+    });
+  });
+
+  updateUiWidgets();
+
+  //poll for changes every 5 seconds
+  window.setInterval("updateUiWidgets()", 5000);
+});
 
 function updateUiWidgets()
 {
@@ -114,25 +121,74 @@ function updateUiWidgets()
     }
   }
 
-  //replace the content of the widget if there is data from the appropriate datastore
+  /*
+  //check if we have to update the widget
   for(collection in receivedData)
   {
+    //is there even anything in the datastore ?
     if(typeof(receivedData[collection]) !== 'undefined' && receivedData[collection] !== null)
     {
-      //remove all elements from the metaInformationsList (dirty hack using the collection id as DOM element id)
+      var updateWidget = false;
+
+      //we need to update the widget if the number of elements from the response and the widget does not match
+      if($('#bibliographyList li').length !== receivedData[collection].length)
+      {
+        updateWidget = true;
+      }
+      //even if the number of elements matches, we might have to update
+      else
+      {
+        for(element in receivedData[collection])
+        {
+          if(updateWidget === false &&  $('#bibliographyList li[id="' + receivedData[collection][element]['id'] +  '"]').length === 0)
+          {
+            updateWidget = true;
+          }
+        }
+      }
+
+      if(updateWidget === true)
+      {
+        //update the widget if its needed
+        $('#' + collection + 'List li').remove();
+
+        for(element in receivedData[collection])
+        {
+          if(typeof(receivedData[collection][element]['data']) !== 'undefined' && typeof(receivedData[collection][element]['data']['title']) !== 'undefined')
+          {
+          $('#' + collection + 'List').append('<li id="' + receivedData[collection][element]['id']  + '" style="border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width:     0px; border-style: initial; border-color: initial; " class="ui-widget-content ui-selectee">' + receivedData[collection][element]['data']['title'] + '</li>');
+          }
+        }
+      }
+    }
+  }
+  */
+  for(collection in receivedData)
+  {
+    //is there even anything in the datastore ?
+    if(typeof(receivedData[collection]) !== 'undefined' && receivedData[collection] !== null)
+    {
+      //save the selected element
+      var selectedElementId = $('#' + collection + 'List .ui-selected').attr('id');
+
+      //clear the widget
       $('#' + collection + 'List li').remove();
 
       for(element in receivedData[collection])
       {
         if(typeof(receivedData[collection][element]['data']) !== 'undefined' && typeof(receivedData[collection][element]['data']['title']) !== 'undefined')
         {
-        $('#' + collection + 'List').append('<li id="' + receivedData[collection][element]['id']  + '" style="border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width: 0px; border-style: initial; border-color: initial; " class="ui-widget-content ui-selectee">' + receivedData[collection][element]['data']['title'] + '</li>');
+        $('#' + collection + 'List').append('<li id="' + receivedData[collection][element]['id']  + '" style="border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-         width:     0px; border-style: initial; border-color: initial; " class="ui-widget-content ui-selectee">' + receivedData[collection][element]['data']['title'] + '</li>');
         }
+      }
+
+      //restore selected element
+      if(typeof(selectedElementId) !== 'undefined')
+      {
+        $('#' + collection + 'List li[id="' + selectedElementId + '"]').addClass('ui-selected');
       }
     }
   }
-
-  var foo = 'bar';
 }
   
 function viewLargerImage(listElement)
@@ -143,11 +199,13 @@ function viewLargerImage(listElement)
   imageView.dialog('open');
 }
 
-function handleUserInterfaceEvent(event)
+function getDialogHtml(dialogType)
 {
-  if(event.origin === 'metaInformationsCommandBar.AddButton')
+  var dialogHtml;
+
+  if(dialogType === 'metaInformations')
   {
-    var dialogHtml = $('\
+    dialogHtml = $('\
       <div>\
         <fieldset>\
           <label for="metaInfoType">Type of meta information</label>\
@@ -196,6 +254,67 @@ function handleUserInterfaceEvent(event)
           </fieldset>\
       </div>\
     ');
+  }
+  else if(dialogType === 'bibliography')
+  {
+    dialogHtml = $('\
+      <div>\
+        <fieldset>\
+          <label for="entryType">Entry type</label>\
+          <select name="entryType" id="entryType">\
+            <option>Article</option>\
+            <option>Book</option>\
+            <option>Booklet</option>\
+            <option>Conference</option>\
+            <option>Inbook</option>\
+            <option>Incollection</option>\
+            <option>Manual</option>\
+            <option>Master thesis</option>\
+            <option>Misc</option>\
+            <option>Phd thesis</option>\
+            <option>Proceedings</option>\
+            <option>Techreport</option>\
+            <option>Unpublished</option>\
+          </select>\
+          <label for="title">Title</label>\
+          <input type="text" name="title" class="text ui-widget-content ui-corner-all" />\
+          <label for="authors">Authors</label>\
+          <input type="text" name="authors" class="text ui-widget-content ui-corner-all" />\
+          <div id="url">\
+            <label for="url">Url</label>\
+            <input type="text" name="url" class="text ui-widget-content ui-corner-all" />\
+          </div>\
+          <div id="year">\
+            <label for="year">Year</label>\
+            <input type="text" name="year" class="text ui-widget-content ui-corner-all" />\
+          </div>\
+          <div id="month">\
+            <label for="month">Month</label>\
+            <input type="text" name="month" class="text ui-widget-content ui-corner-all" />\
+          </div>\
+          <div id="publisher">\
+            <label for="publisher">Publisher</label>\
+            <input type="text" name="publisher" class="text ui-widget-content ui-corner-all" />\
+          </div>\
+          <label for="journal">Journal</label>\
+          <input type="text" name="journal" class="text ui-widget-content ui-corner-all" />\
+        </fieldset>\
+      </div>\
+    ');
+  }
+
+  return dialogHtml;
+}
+
+
+function handleUserInterfaceEvent(event)
+{ 
+  //
+  // Add meta information
+  //
+  if(event.origin === 'metaInformationsCommandBar.AddButton')
+  {
+    var dialogHtml = getDialogHtml('metaInformations');
     
     var addButtonHandler = function()
     {
@@ -271,7 +390,6 @@ function handleUserInterfaceEvent(event)
       elementsToShow.show();
     }
     
-    //just handle the first one, if multiple images are selected
     dialogHtml.find('select').selectmenu({
       width: '150px',
       change:  selectmenuChangeHandler
@@ -312,53 +430,14 @@ function handleUserInterfaceEvent(event)
     
     $(dialog).dialog('open');
   }
+
+  //
+  // Add bibliography
+  //
   else if(event.origin === 'bibliographyCommandBar.AddButton')
   {
-    var dialogHtml = $('\
-      <div>\
-        <fieldset>\
-          <label for="entryType">Entry type</label>\
-          <select name="entryType" id="entryType">\
-            <option>Article</option>\
-            <option>Book</option>\
-            <option>Booklet</option>\
-            <option>Conference</option>\
-            <option>Inbook</option>\
-            <option>Incollection</option>\
-            <option>Manual</option>\
-            <option>Master thesis</option>\
-            <option>Misc</option>\
-            <option>Phd thesis</option>\
-            <option>Proceedings</option>\
-            <option>Techreport</option>\
-            <option>Unpublished</option>\
-          </select>\
-          <label for="title">Title</label>\
-          <input type="text" name="title" class="text ui-widget-content ui-corner-all" />\
-          <label for="authors">Authors</label>\
-          <input type="text" name="authors" class="text ui-widget-content ui-corner-all" />\
-          <div id="url">\
-            <label for="url">Url</label>\
-            <input type="text" name="url" class="text ui-widget-content ui-corner-all" />\
-          </div>\
-          <div id="year">\
-            <label for="year">Year</label>\
-            <input type="text" name="year" class="text ui-widget-content ui-corner-all" />\
-          </div>\
-          <div id="month">\
-            <label for="month">Month</label>\
-            <input type="text" name="month" class="text ui-widget-content ui-corner-all" />\
-          </div>\
-          <div id="publisher">\
-            <label for="publisher">Publisher</label>\
-            <input type="text" name="publisher" class="text ui-widget-content ui-corner-all" />\
-          </div>\
-          <label for="journal">Journal</label>\
-          <input type="text" name="journal" class="text ui-widget-content ui-corner-all" />\
-        </fieldset>\
-      </div>\
-    ');
-    
+    var dialogHtml = getDialogHtml('bibliography');
+
     var addButtonHandler = function()
     {
       var dialog = $(this);
@@ -433,7 +512,22 @@ function handleUserInterfaceEvent(event)
     });
     
     $(dialog).dialog('open');
-  }  
+  }
+
+  //
+  // Change bibliography
+  //
+  else if(event.origin === 'bibliographyCommandBar.ChangeButton')
+  {
+    //get selected list element
+    
+
+    alert('Change bibliography');
+  }
+
+  //
+  // Delete bibliography
+  //
   else if(event.origin === 'bibliographyCommandBar.DeleteButton')
   {
     var item;
