@@ -4,7 +4,21 @@ $(document).ready(function()
   //create the heading selector select menu
   $(function() {
     $('#headingSelector').selectmenu({
-      width: '150px'
+      width: '150px',
+      select: function(e, selectmenuData)
+      {
+        var hookMethodeName = 'handleCommand';
+        var hookMethodeParameters =
+        {
+          name: 'changeHeading',
+          parameters:
+          {
+            headingType: selectmenuData.value
+          }
+        };
+
+        plugins.callHook(hookMethodeName, hookMethodeParameters);
+      }
     });
 
     $('#headingSelector-button').css({
