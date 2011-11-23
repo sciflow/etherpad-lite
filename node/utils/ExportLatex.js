@@ -99,6 +99,8 @@ function generateExportTags(attributeName, attributeValue, tagType)
     return (tagType === 'openTag') ? '\\bullet5{'                                                                    : '}';
   else if (attributeName === 'list' &&  attributeValue === 'bullet6')
     return (tagType === 'openTag') ? '\\bullet6{'                                                                    : '}';
+  else if (attributeName === 'list' &&  attributeValue === 'bullet7')
+    return (tagType === 'openTag') ? '\\bullet7{'                                                                    : '}';
   else if (attributeName === 'heading1')      return (tagType === 'openTag') ? '\\chapter{'                          : '}\n';
   else if (attributeName === 'heading2')      return (tagType === 'openTag') ? '\\section{'                          : '}\n';
   else if (attributeName === 'heading3')      return (tagType === 'openTag') ? '\\subsection{'                       : '}\n';
