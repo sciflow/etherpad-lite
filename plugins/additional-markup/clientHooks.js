@@ -1,5 +1,5 @@
 // command is an object containing the command name and the parameters
-exports.handleCommand = function (command)
+exports.handleCommand = function(command)
 {
 
   //check if this is a supported command
@@ -11,7 +11,68 @@ exports.handleCommand = function (command)
   //handle changeHeading
   if(command.name === 'changeHeading')
   {
+    var attributeName = null;
 
+    switch (command.parameters.headingType) {
+      case 'normalText':
+        break;
+      case 'heading1':
+        attributeName= 'heading1';
+        break;
+      case 'heading2':
+        attributeName= 'heading2';
+        break;
+      case 'heading3':
+        attributeName= 'heading3';
+        break;
+      case 'heading4':
+        attributeName= 'heading4';
+        break;
+      case 'heading5':
+        attributeName= 'heading5';
+        break;
+      case 'heading6':
+        attributeName= 'heading6';
+        break;
+      default:
+        return;
+    }
+
+    padeditor.ace.callWithAce(function (ace) {
+      rep = ace.ace_getRep();
+
+      // Setting a heading is something you probably want to do for the whole line.
+      // To accomplish this, we manipulate the rep.selStart and rep.selEnd before
+      // calling setAttributeOnSelection and toggleAttributeOnSelection to fit the
+      // whole line. After calling this functions, we restore the original values.
+      var originalSelStart = [rep.selStart[0], rep.selStart[1]];
+      var originalSelEnd = [rep.selEnd[0], rep.selEnd[1]];
+
+      rep.selStart[0] = rep.selStart[0];
+      rep.selStart[1] = 0;
+
+      rep.selEnd[0] = rep.selEnd[0];
+      rep.selEnd[1] = rep.lines.atIndex(rep.selEnd[0]).width - 1;  // here's the magic
+
+      // When we set a selection to heading level x, we must take care of
+      // the case, that this selection might allready be a heading of either
+      // level x or some other level y. So we simply set all heading attributes
+      // of the current selection to '', thus deleting all heading formats so far
+      ace.ace_setAttributeOnSelection('heading1','');
+      ace.ace_setAttributeOnSelection('heading2','');
+      ace.ace_setAttributeOnSelection('heading3','');
+      ace.ace_setAttributeOnSelection('heading4','');
+      ace.ace_setAttributeOnSelection('heading5','');
+      ace.ace_setAttributeOnSelection('heading6','');
+
+      if(attributeName!== null) ace.ace_toggleAttributeOnSelection(attributeName);
+
+      // Restore the original rep.selStart and rep.selEnd values
+      rep.selStart[0] = originalSelStart[0];
+      rep.selStart[1] = originalSelStart[1];
+      rep.selEnd[0] = originalSelEnd[0];
+      rep.selEnd[1] = originalSelEnd[1];
+    }, "headings", true);
   }
   //handle addGraphic
   else if(command.name === 'addGraphic')
@@ -61,74 +122,6 @@ exports.handleCommand = function (command)
    var regExpmatch = 'foo'.match(/^bla/);
 }
 
-//TODO: Find a better name for this
-exports.entryPoint = function (arg) {
-
-  var attributeName = null;
-
-  switch (arg) {
-    case 'normalText':
-      break;
-    case 'heading1':
-      attributeName= 'heading1';
-      break;
-    case 'heading2':
-      attributeName= 'heading2';
-      break;
-    case 'heading3':
-      attributeName= 'heading3';
-      break;
-    case 'heading4':
-      attributeName= 'heading4';
-      break;
-    case 'heading5':
-      attributeName= 'heading5';
-      break;
-    case 'heading6':
-      attributeName= 'heading6';
-      break;
-    default:
-      return;
-  }
-
-  padeditor.ace.callWithAce(function (ace) {
-    rep = ace.ace_getRep();
-
-    // Setting a heading is something you probably want to do for the whole line.
-    // To accomplish this, we manipulate the rep.selStart and rep.selEnd before
-    // calling setAttributeOnSelection and toggleAttributeOnSelection to fit the
-    // whole line. After calling this functions, we restore the original values.
-    var originalSelStart = [rep.selStart[0], rep.selStart[1]];
-    var originalSelEnd = [rep.selEnd[0], rep.selEnd[1]];
-
-    rep.selStart[0] = rep.selStart[0];
-    rep.selStart[1] = 0;
-
-    rep.selEnd[0] = rep.selEnd[0];
-    rep.selEnd[1] = rep.lines.atIndex(rep.selEnd[0]).width - 1;  // here's the magic
-
-    // When we set a selection to heading level x, we must take care of
-    // the case, that this selection might allready be a heading of either
-    // level x or some other level y. So we simply set all heading attributes
-    // of the current selection to '', thus deleting all heading formats so far
-    ace.ace_setAttributeOnSelection('heading1','');
-    ace.ace_setAttributeOnSelection('heading2','');
-    ace.ace_setAttributeOnSelection('heading3','');
-    ace.ace_setAttributeOnSelection('heading4','');
-    ace.ace_setAttributeOnSelection('heading5','');
-    ace.ace_setAttributeOnSelection('heading6','');
-
-    if(attributeName!== null) ace.ace_toggleAttributeOnSelection(attributeName);
-
-    // Restore the original rep.selStart and rep.selEnd values
-    rep.selStart[0] = originalSelStart[0];
-    rep.selStart[1] = originalSelStart[1];
-    rep.selEnd[0] = originalSelEnd[0];
-    rep.selEnd[1] = originalSelEnd[1];
-  }, "headings", true);
-
-}
-
 exports.aceAttribsToClasses = function(args) {
 
   if(args.key === 'graphic') return ['graphic:' + args.value];
@@ -169,11 +162,43 @@ exports.aceCreateDomLine = function(args) {
 
     return [result];
 
-  };      
+  };
+
+  if (args.cls.indexOf('headings:h1') >= 0) {
+    cls = args.cls.replace(/(^| )headings:(\S+)/g, function(x0, space, typOfHeading) { return space + typOfHeading; });
+    return [{cls: cls, extraOpenTags: '<div style="font-size:32px; line-height:36px; font-weight:bold">', extraCloseTags: '</div>'}];
+  }
+
+  if (args.cls.indexOf('headings:h2') >= 0) {
+    cls = args.cls.replace(/(^| )headings:(\S+)/g, function(x0, space, typOfHeading) { return space + typOfHeading; });
+    return [{cls: cls, extraOpenTags: '<div style="font-size:24px; line-height:28px; font-weight:bold">', extraCloseTags: '</div>'}];
+  }
+
+  if (args.cls.indexOf('headings:h3') >= 0) {
+    cls = args.cls.replace(/(^| )headings:(\S+)/g, function(x0, space, typOfHeading) { return space + typOfHeading; });
+    return [{cls: cls, extraOpenTags: '<div style="font-size:19px; line-height:23px; font-weight:bold">', extraCloseTags: '</div>'}];
+  }
+
+  if (args.cls.indexOf('headings:h4') >= 0) {
+    cls = args.cls.replace(/(^| )headings:(\S+)/g, function(x0, space, typOfHeading) { return space + typOfHeading; });
+    return [{cls: cls, extraOpenTags: '<div style="font-size:16px; line-height:18px; font-weight:bold">', extraCloseTags: '</div>'}];
+  }
+
+  if (args.cls.indexOf('headings:h5') >= 0) {
+    cls = args.cls.replace(/(^| )headings:(\S+)/g, function(x0, space, typOfHeading) { return space + typOfHeading; });
+    return [{cls: cls, extraOpenTags: '<div style="font-size:15px; line-height:17px; font-weight:bold">', extraCloseTags: '</div>'}];
+  }
+
+  if (args.cls.indexOf('headings:h6') >= 0) {
+    cls = args.cls.replace(/(^| )headings:(\S+)/g, function(x0, space, typOfHeading) { return space + typOfHeading; });
+    return [{cls: cls, extraOpenTags: '<div style="font-size:13px; line-height:15px; font-weight:bold">', extraCloseTags: '</div>'}];
+  }
+/*
   if (args.cls.indexOf('headings:') >= 0) {
     cls = args.cls.replace(/(^| )headings:(\S+)/g, function(x0, space, typOfHeading) { return space + typOfHeading; });
     return [{cls: cls, extraOpenTags: '', extraCloseTags: ''}];
   }
+*/
 }
 
 exports.collectContentPre = function(args) {
