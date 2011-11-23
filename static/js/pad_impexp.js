@@ -234,6 +234,10 @@ var padimpexp = (function()
       $("#exporthtmla").attr("href", document.location.pathname + "/export/html");
       $("#exportplaina").attr("href", document.location.pathname + "/export/txt");
       $("#exportwordlea").attr("href", document.location.pathname + "/export/wordle");
+      $("#exportlatex").attr("href", '/api/2/pads/' + document.location.pathname.match(/\/p\/(\w*)\/?/)[1] + '/exports/latex');
+      $("#exportlatex .exporttype").css('background-position', '2px -121px');
+      $("#exportpdflatex").attr("href", '/api/2/pads/' + document.location.pathname.match(/\/p\/(\w*)\/?/)[1] + '/exports/pdflatex');
+      $("#exportpdflatex .exporttype").css('background-position', '2px -97px');
       
       //hide stuff thats not avaible if abiword is disabled
       if(clientVars.abiwordAvailable == "no")
@@ -241,8 +245,8 @@ var padimpexp = (function()
         $("#exportworda").remove();
         $("#exportpdfa").remove();
         $("#exportopena").remove();
-        $("#importexport").css({"height":"95px"});
-        $("#importexportline").css({"height":"95px"});
+        $("#importexport").css({"height":"142px"});
+        $("#importexportline").css({"height":"142px"});
         $("#import").html("Import is not available");
       }
       else if(clientVars.abiwordAvailable == "withoutPDF")
