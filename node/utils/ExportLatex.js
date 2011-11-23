@@ -87,6 +87,18 @@ function generateExportTags(attributeName, attributeValue, tagType)
   else if (attributeName === 'italic')        return (tagType === 'openTag') ? '\\textit{'                           : '}';
   else if (attributeName === 'underline')     return (tagType === 'openTag') ? '\\underline{'                        : '}';
   else if (attributeName === 'strikethrough') return (tagType === 'openTag') ? '\\sout{'                             : '}';
+  else if (attributeName === 'list' &&  attributeValue === 'bullet1')
+    return (tagType === 'openTag') ? '\\bullet1{'                                                                    : '}';
+  else if (attributeName === 'list' &&  attributeValue === 'bullet2')
+    return (tagType === 'openTag') ? '\\bullet2{'                                                                    : '}';
+  else if (attributeName === 'list' &&  attributeValue === 'bullet3')
+    return (tagType === 'openTag') ? '\\bullet3{'                                                                    : '}';
+  else if (attributeName === 'list' &&  attributeValue === 'bullet4')
+    return (tagType === 'openTag') ? '\\bullet4{'                                                                    : '}';
+  else if (attributeName === 'list' &&  attributeValue === 'bullet5')
+    return (tagType === 'openTag') ? '\\bullet5{'                                                                    : '}';
+  else if (attributeName === 'list' &&  attributeValue === 'bullet6')
+    return (tagType === 'openTag') ? '\\bullet6{'                                                                    : '}';
   else if (attributeName === 'heading1')      return (tagType === 'openTag') ? '\\chapter{'                          : '}\n';
   else if (attributeName === 'heading2')      return (tagType === 'openTag') ? '\\section{'                          : '}\n';
   else if (attributeName === 'heading3')      return (tagType === 'openTag') ? '\\subsection{'                       : '}\n';
@@ -134,11 +146,13 @@ function getLatexFromAtext(pad, atext)
 
   //we need to declare these in order for them not to be global
   var currentOperation = undefined;
+  var previousOperation = '';
   var regExpMatch = undefined;
 
   while(currentOperation = operations.shift())
   {
-    if(regExpMatch = currentOperation.match(/^\*([a-zA-Z0-9]+)$/))
+    //the second condition is to handle the case, where two following operations are both '+' kind of operations, where all attributes have to be disabled
+    if((regExpMatch = currentOperation.match(/^\*([a-zA-Z0-9]+)$/)) || (previousOperation.match(/^(?:\|([a-zA-Z0-9]+))?\+([a-zA-Z0-9]+)$/) && currentOperation.match(/^(?:\|([a-zA-Z0-9]+))?\+([a-zA-Z0-9]+)$/)))
     {
       //if we are currently in applyAttributes mode, switch to alterAppliedAttributes mode
       if(currentMode === 'applyAttributes')
@@ -155,18 +169,22 @@ function getLatexFromAtext(pad, atext)
       }
 
       //at this point we have to be in alterAppliedAttributes mode
-      var attributeId = parseInt(regExpMatch[1], 36);
-      
-      if(typeof(attributes[attributeId].currentState) === 'undefined')
+      var attributeId = (regExpMatch !== null) ?  parseInt(regExpMatch[1], 36) : null;
+     
+      //if this is a second '+' kind of operation, there is no attributeId
+      if(attributeId !== null)
       {
-        attributes[attributeId].currentState = 'newlyAddedAttribute';
-      }
-      else
-      {
-        attributes[attributeId].currentState = 'remainingAttribute'; //do we need this ?
+        if(typeof(attributes[attributeId].currentState) === 'undefined')
+        {
+          attributes[attributeId].currentState = 'newlyAddedAttribute';
+        }
+        else
+        {
+          attributes[attributeId].currentState = 'remainingAttribute'; //do we need this ?
+        }
       }
     }
-    else if(regExpMatch = currentOperation.match(/^(?:\|([a-zA-Z0-9]+))?\+([a-zA-Z0-9]+)$/))
+    if(regExpMatch = currentOperation.match(/^(?:\|([a-zA-Z0-9]+))?\+([a-zA-Z0-9]+)$/))
     {
       //if we are currentliy in alterAppliedAttributes mode, switch to applyAttributesMode
       if(currentMode === 'alterAttributesToApply')
@@ -212,9 +230,95 @@ function getLatexFromAtext(pad, atext)
       //update to current cursor
       currentCursorPosition += parseInt(regExpMatch[2], 36);
     }
+
+    previousOperation = currentOperation;
   }
 
-  return pieces.join('');
+  var intermediateResult = pieces.join('');
+
+  /*
+  //do list processing till level 10
+  for(var i = 10; i > 0; i--)
+  {
+    var listsSubstrings = intermediateResult.match(new RegExp('(\\\\bullet' + parseInt(i) + '\\{\\*\\}[0-9.]+\\n)+', 'g'));
+
+    var element;
+
+    for(element in listsSubstrings)
+    {
+      var substringBegin = intermediateResult.indexOf(listsSubstrings[element]);
+      var substringLength = listsSubstrings[element].length;
+      var substring = intermediateResult.substr(substringBegin, substringLength);
+
+      var replacedSubstring = '\\begin{itemize}\n' + substring.replace(new RegExp('bullet' + parseInt(i) + '\\{\\*\\}([0-9a-zA-Z.]*)\\n','g'),'\item{$1}\n', 'g') + '\\end{itemize}\n';
+
+      var foo = 'bar';
+    }
+  }
+  */
+  
+  //second try using per line processing
+  var lines = intermediateResult.split('\n');
+
+  var lineNumber;
+  var currentListLevel = 0;
+  var previousListLevel = 0;
+
+  for(lineNumber in lines)
+  {
+    var regExpResult;
+
+    if(regExpResult = lines[lineNumber].match(/^\\bullet(\d)/))
+    {
+      previousListLevel = currentListLevel;
+      currentListLevel = parseInt(regExpResult[1]);
+
+      if(currentListLevel > previousListLevel)
+      {
+        var firstLevelSpaces = new Array(currentListLevel).join('  ');
+        var secondLevelSpaces = new Array(currentListLevel + 1).join('  ');
+
+        //open new list level
+        lines[lineNumber] = firstLevelSpaces + '\\begin{itemize}\n' + secondLevelSpaces  + '\\item{' + lines[lineNumber].replace(/^\\bullet\d\{\*\}/, '') + '}';
+      }
+      else if(currentListLevel === previousListLevel)
+      {
+        var spaces = new Array(currentListLevel + 1).join('  ');
+
+        //just create an item
+        lines[lineNumber] = spaces + '\\item{' + lines[lineNumber].replace(/^\\bullet\d\{\*\}/, '') + '}';
+      }
+      else if(currentListLevel < previousListLevel)
+      {
+        var firstLevelSpaces = new Array(currentListLevel).join('  ');
+        var secondLevelSpaces = new Array(currentListLevel + 1).join('  ');
+
+        //close old list level
+        lines[lineNumber] = secondLevelSpaces + '\\end{itemize}\n' + firstLevelSpaces  + '\\item{' + lines[lineNumber].replace(/^\\bullet\d\{\*\}/, '') + '}';
+      }
+    }
+    else
+    {
+      currentListLevel = 0;
+
+      if(previousListLevel > 0)
+      {
+        var prependString = '';
+
+        while(previousListLevel > 0)
+        {
+          var spaces = new Array(previousListLevel).join('  ');
+          prependString = prependString + spaces + '\\end{itemize}\n';          
+
+          previousListLevel--;
+        }
+
+        lines[lineNumber] = prependString + lines[lineNumber];
+      }
+    }
+  }
+
+  return lines.join('\n');
 }
 
 function _analyzeLine(text, aline, attributePool)
