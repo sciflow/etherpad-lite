@@ -101,6 +101,15 @@ exports.handleApiCall = function(req, res, next)
       deleteHandler: deletePad
     },
 */
+    //this is a short link to export the most current revision
+    {
+      regEx: /^pads\/(?:[0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/exports\/?$/,
+      getHandler: getListOfAvailableExportFormats
+    },
+    {
+      regEx: /^pads\/(?:[0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/exports\/[0-9a-zA-Z_]+\/?$/,
+      getHandler: exportPad
+    },
     {
       regEx: /^pads\/(?:[0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/revisions\/?$/,
       getHandler: getPadRevisionHead
@@ -289,7 +298,7 @@ function exportPadRevision(req, res, handleResult)
   {
     exportLatex.getPadLatexDocument(regExpResult[1], regExpResult[2], function(err, result)
     {
-      res.contentType('application/x-latex');
+      res.contentType('application/text');
       res.send(result, 200);
     });
   }
@@ -298,6 +307,42 @@ function exportPadRevision(req, res, handleResult)
     res.send(404);
   }
 }
+
+function exportPad(req, res, handleResult)
+{
+  //we need to know, which pad, which revision and which output format
+  var regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/exports\/([0-9a-zA-Z_]+)\/?$/);
+
+  if(regExpResult[2].match(/^pdflatex$/i))
+  {
+    exportLatex.getPadLatexDocument(regExpResult[1], undefined, function(err, result)
+    {
+      res.contentType('application/pdf');
+      res.sendfile(path.normalize(__dirname + '/../../tmp/sigproc-sp.pdf'));
+    });
+
+    /*
+    //send pdf
+    fs.readFile(path.normalize(__dirname + '/../../tmp/sigproc-sp.pdf'), function(err, content) {
+      res.contentType('application/pdf');
+      res.send('Here comes the file');
+    });
+    */
+  }
+  else if(regExpResult[2].match(/^latex$/i))
+  {
+    exportLatex.getPadLatexDocument(regExpResult[1], undefined, function(err, result)
+    {
+      res.contentType('application/text');
+      res.send(result, 200);
+    });
+  }
+  else
+  {
+    res.send(404);
+  }
+}
+
 
 function getListOfPadDatastores(req, res, handleResult)
 {
