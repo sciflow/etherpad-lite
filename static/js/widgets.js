@@ -76,7 +76,7 @@ $(document).ready(function()
   updateUiWidgets();
 
   //poll for changes every 5 seconds
-  window.setInterval("updateUiWidgets()", 5000);
+  //window.setInterval("updateUiWidgets()", 5000);
 });
 
 function updateUiWidgets()
