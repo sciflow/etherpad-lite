@@ -20,6 +20,8 @@
 
 var fs = require("fs");
 var path = require("path");
+var async = require('async');
+
 var api = require("../db/API");
 var db = require("../db/DB").db;
 var exportLatex = require("../utils/ExportLatex.js");
@@ -540,7 +542,102 @@ function getDatastoreElement(req, res, handleResult)
 
 function changeDatastoreElement(req, res, handleResult)
 {
+  var padId;
+  var datastoreId;
+  var elementId;
+  var parameterObject;
+  var datastoreObject;
 
+  function preChecks()
+  {
+    var checksPassed = false;
+
+    async.series([      
+      //check if we can extract the needed parameters from the calling url
+      function(callback)
+      {
+        var regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/?$/)
+      
+        if(regExpResult === null || typeof(regExpResult[1]) !== 'string' || typeof(regExpResult[2]) !== 'string' || typeof(regExpResult[3]) !== 'string')
+        {
+          //signal an error
+          callback(['The requested url does not match the calling conventions.', 403]);
+        }
+        else
+        {
+          //save the results for further usage
+          padId = regExpResult[1];
+          datastoreId = regExpResult[2];
+          elementId = regExpResult[3];
+         
+          //call next function in series
+          callback(null);
+        }
+      },
+      //check if req.body is an object
+      function(callback)
+      {
+        if(typeof(req.body) !== 'object')
+        {
+          //signal an error
+          callback(['The request contains no application/x-www-form-urlencoded or application/json encoded parameter object.', 403]);
+        }
+        else
+        {
+          //save req.body for further usage
+          parameterObject = req.body;
+
+          //call next function in series
+          callback(null);
+        }
+      },
+      //check if there is a datastore entry with the given elementId
+      function(callback)
+      {
+        db.get('pad:' + padId + ':datastores:' + datastoreId + ':' + elementId, function(err, result)
+        {
+          if(typeof(result) !== 'object')
+          {
+            //signal an error
+            callback(['The requested datastore object you wished to replace does not exist.', 403]);
+
+            //TODO: It should be possible to PUT datastore elements even if they don't exist prior
+          }
+          else
+          {
+            datastoreObject = result;
+
+            //call next function in series
+            callback(null);
+          }
+        });
+      }
+    ],
+    //final callback
+    function(err, results)
+    {
+      if(typeof(err) === 'object')
+      {
+        res.send(err[0] + '\n', err[1]);
+        checksPassed = false;;
+      }
+      else
+      {
+        checksPassed = true;;
+      }
+    });
+
+    return checksPassed;
+  }
+
+  //perform pre-checks
+  if(preChecks() === false) return;
+
+  //put the object in the datastore
+  db.set("pad:" + padId + ":datastores:" + datastoreId + ":" + elementId, parameterObject, function(err, result)
+  {
+    res.send(200);
+  });
 }
 
 function deleteDatastoreElement(req, res, handleResult)
