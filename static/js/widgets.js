@@ -905,7 +905,14 @@ function handleUserInterfaceEvent(event)
   {
     var selectedImage = $('#graphicsList li.ui-selected').find('img');
 
-    //call the additional markup plugin
-    plugins.callHook('handleCommand', {name: 'addGraphic', parameters: { url: $(selectedImage).attr('src') } });
+    if(selectedImage.length > 0)
+    {
+      //call the additional markup plugin
+      plugins.callHook('handleCommand', {name: 'addGraphic', parameters: { url: $(selectedImage).attr('src') } });
+    }
+    else
+    {
+      alert('Please select a graphic to insert.');
+    }
   }
 }
