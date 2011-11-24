@@ -138,6 +138,7 @@ exports.handleApiCall = function(req, res, next)
       regEx: /^pads\/(?:[0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/[0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*\/?$/,
       getHandler: getListOfDatastoreElements,
       postHandler: createDatastoreElement,
+      putHandler: createNamedDatastore,
       deleteHandler: deleteDatastore
     },
     {
@@ -444,73 +445,102 @@ function getListOfPadDatastores(req, res, handleResult)
   }
 }
 
-function createDatastore(req, res, handleResult)
+//does the real work, can be called by other api handler functions to
+function _createDatastore(padId, datastoreId, callback)
 {
-  var regExpResult;
-  var datastoreId;
-
-  //check if the request contains a datastoreId or if we have to generate one
-  if(typeof(req.body) === 'undefined' || typeof(req.body.datastoreId) === 'undefined')
+  //check if a datastore with the given (or computed) datastoreId already exists
+  db.get("pad:" + padId + ":datastores:" + datastoreId, function(err, result)
   {
-    //there is no datastoreId, so let's generate one
-    datastoreId = 'd.' + randomString(16);
-  }
-  else
-  {
-    datastoreId = req.body.datastoreId;
-  }
-
-  //the results of that api call should not be cached by the client
-  res.header('Pragma', 'no-cache');
-  res.header('Cache-Control', 'no-cache');
-
-  //which pad do we need to create a datastore in ?
-  if(regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/?$/))
-  {
-    //check if a datastore with the given (or computed) datastoreId already exists
-    db.get("pad:" + regExpResult[1] + ":datastores:" + datastoreId, function(err, result)
+    //if the result is not undefined, than there is already such a datastore
+    if(typeof(result) !== 'undefined')
     {
-      //if the result is not undefined, than there is already such a datastore
-      if(typeof(result) !== 'undefined')
+      callback('Datastore already exists!');
+    }
+    else
+    {
+      //update the datastores list of that pad (no need for async here, this and the next db.set can be executed parallel)
+      db.get("pad:" + padId + ":datastores", function(err, listOfDatastores)
       {
-        res.send('Datastore already exists!', 403);
-        return;
-      }
-      else
-      {
-        //update the datastores list of that pad (no need for async here, this and the next db.set can be executed parallel)
-        db.get("pad:" + regExpResult[1] + ":datastores", function(err, result)
+        //if there are no datastores for that pad yet, initialize the according array
+        if(typeof(listOfDatastores) !== 'object')
         {
-          //if there are no datastores for that pad yet, initialize the according array
-          if(typeof(result) !== 'object')
+          db.set("pad:" + padId + ":datastores", [ datastoreId ]);
+        }
+        //if there are already datastores for that pad, add the given datastoreId to the existing ones
+        else
+        {
+          //This should never happen, but for the sake of safety
+          if(listOfDatastores.indexOf(datastoreId) !== -1)
           {
-            db.set("pad:" + regExpResult[1] + ":datastores", [datastoreId]);
+            callback('This datastore identifier is already already used.');
           }
-          //if there are already datastores for that pad, add the given datastoreId to the existing ones
           else
           {
-            //it should never happen, that there is a entry in the datastores list without a corresponding datastore, but for the sake of safety
-            if(result.indexOf(datastoreId) === -1)
-            {
-              result.push(datastoreId);
-            }
-
-            db.set("pad:" + regExpResult[1] + ":datastores", result);
+            listOfDatastores.push(datastoreId);
           }
-        });
 
-        //initialize the new datastores element list
-        db.set("pad:" + regExpResult[1] + ":datastores:" + datastoreId, []);
-      }
+          //store the updated list of datastores in the db
+          db.set("pad:" + padId + ":datastores", listOfDatastores);
+        }
+      });
 
-      //response with datastoreId to signal a successfull operation 
-      handleResult(null, req, res, datastoreId);
-    });
-  }
-  else
+      //initialize the new datastores element list
+      db.set("pad:" + padId + ":datastores:" + datastoreId, []);
+    }
+
+    //everything went fine, so let's call the callback
+    callback(null);
+  });
+}
+
+function createDatastore(req, res, handleResult)
+{
+  //we save the result of the regEx match so we dont't have to do this more than once
+  var regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/?$/);
+
+  //the padId should be the first match result
+  var padId = regExpResult[1];
+
+  //this is a POST to datastores, so we create a datastoreId on our own and return that id in the end
+  var datastoreId = 'd.' + randomString(16);
+
+  //create the datastore
+  _createDatastore(padId, datastoreId, function(err)
   {
-    res.send(403);
-  }
+    //the results of that api call should not be cached by the client
+    res.header('Pragma', 'no-cache');
+    res.header('Cache-Control', 'no-cache');
+
+    if(err === null)
+      handleResult(null, req, res, datastoreId);
+    else
+      res.send(500);
+  });
+}
+
+function createNamedDatastore(req, res, handleResult)
+{
+  //we save the result of the regEx match so we dont't have to do this more than once
+  var regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/?$/);
+
+  //the padId should be the first match result
+  var padId = regExpResult[1];
+
+  //this is a PUT to a named datastore, so the datastoreId is given by the url
+  var datastoreId = regExpResult[2];
+
+  //create the datastore
+  _createDatastore(padId, datastoreId, function(err)
+  {
+    //the results of that api call should not be cached by the client
+    res.header('Pragma', 'no-cache');
+    res.header('Cache-Control', 'no-cache');
+
+    if(err === null)
+      handleResult(null, req, res, datastoreId);
+    else
+      res.send(500);
+  });
 }
 
 function deleteDatastores(req, res, handleResult)
