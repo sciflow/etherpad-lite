@@ -144,7 +144,7 @@ exports.handleApiCall = function(req, res, next)
     {
       regEx: /^pads\/(?:[0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/[0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*\/[0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*\/?$/,
       getHandler: getDatastoreElement,
-      putHandler: changeDatastoreElement,
+      putHandler: createNamedDatastoreElement,
       deleteHandler: deleteDatastoreElement
     }
   ];
@@ -570,6 +570,7 @@ function getListOfDatastoreElements(req, res, handleResult)
   }
 }
 
+/* REMOVEME
 function createDatastoreElement(req, res, handleResult)
 {
   var regExpResult;
@@ -665,6 +666,7 @@ function createDatastoreElement(req, res, handleResult)
     return;
   }
 }
+*/
 
 function deleteDatastore(req, res, handleResult)
 {
@@ -694,103 +696,121 @@ function getDatastoreElement(req, res, handleResult)
 
 }
 
-function changeDatastoreElement(req, res, handleResult)
+/**
+ * Creates a datastore element. Replaces the element, if it already exists.
+ */
+function _createDatastoreElement(padId, datastoreId, elementId, elementData, callback)
 {
-  var padId;
-  var datastoreId;
-  var elementId;
-  var parameterObject;
-  var datastoreObject;
-
-  function preChecks()
-  {
-    var checksPassed = false;
-
-    async.series([      
-      //check if we can extract the needed parameters from the calling url
-      function(callback)
+  async.parallel([
+    //put the object in the datastore
+    function(callback)
+    {
+      db.set("pad:" + padId + ":datastores:" + datastoreId + ":" + elementId, elementData, callback);
+    },
+    //update the list of elements for the given datastore
+    function(callback)
+    {
+      db.get('pad:' + padId + ':datastores:' + datastoreId, function(err, listOfElements)
       {
-        var regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/?$/)
-      
-        if(regExpResult === null || typeof(regExpResult[1]) !== 'string' || typeof(regExpResult[2]) !== 'string' || typeof(regExpResult[3]) !== 'string')
-        {
-          //signal an error
-          callback(['The requested url does not match the calling conventions.', 403]);
-        }
-        else
-        {
-          //save the results for further usage
-          padId = regExpResult[1];
-          datastoreId = regExpResult[2];
-          elementId = regExpResult[3];
-         
-          //call next function in series
-          callback(null);
-        }
-      },
-      //check if req.body is an object
-      function(callback)
-      {
-        if(typeof(req.body) !== 'object')
-        {
-          //signal an error
-          callback(['The request contains no application/x-www-form-urlencoded or application/json encoded parameter object.', 403]);
-        }
-        else
-        {
-          //save req.body for further usage
-          parameterObject = req.body;
+        //if something went wrong, call the async.parallel callback immediately
+        if(typeof(err) !== 'undefined' && err !== null)
+          callback(err);
 
-          //call next function in series
-          callback(null);
-        }
-      },
-      //check if there is a datastore entry with the given elementId
-      function(callback)
-      {
-        db.get('pad:' + padId + ':datastores:' + datastoreId + ':' + elementId, function(err, result)
+        //if we got a result, check if there is an element with that id already in the datastore 
+        if(typeof(listOfElements) === 'object')
         {
-          if(typeof(result) !== 'object')
+          //this should be an array, so we can use indexOf to search for an element
+          if(listOfElements.indexOf(elementId) > -1)
           {
-            //signal an error
-            callback(['The requested datastore object you wished to replace does not exist.', 403]);
-
-            //TODO: It should be possible to PUT datastore elements even if they don't exist prior
+            //there is an element with the same id, so we don't need to update anything (e.g. replace)
+            callback(null);
           }
           else
           {
-            datastoreObject = result;
+            //there is no element with that id present, so we need to update the list of elements
+            listOfElements.push(elementId);
 
-            //call next function in series
-            callback(null);
+            db.set('pad:' + padId + ':datastores:' + datastoreId, listOfElements, callback);
           }
-        });
-      }
-    ],
-    //final callback
-    function(err, results)
-    {
-      if(typeof(err) === 'object')
-      {
-        res.send(err[0] + '\n', err[1]);
-        checksPassed = false;;
-      }
-      else
-      {
-        checksPassed = true;;
-      }
-    });
-
-    return checksPassed;
-  }
-
-  //perform pre-checks
-  if(preChecks() === false) return;
-
-  //put the object in the datastore
-  db.set("pad:" + padId + ":datastores:" + datastoreId + ":" + elementId, parameterObject, function(err, result)
+        }
+        //if the result is undefined, there is no datastore at all, so we need to create it 
+        else
+        {
+          _createDatastore(padId, datastoreId, function(err)
+          {
+            //if there was an error, call the callback
+            if(typeof(err) !== 'undefined' && err !== null)
+              callback(err);
+            //else store the initial list of elements
+            else
+              db.set('pad:' + padId + ':datastores:' + datastoreId, [ elementId ], callback);
+          });
+        }
+      });
+    }
+  ],
+  function(err)
   {
-    res.send(200);
+    //finally call the main callback
+    callback(err);
+  });
+}
+
+function createDatastoreElement(req, res, handleResult)
+{
+  //we save the result of the regEx match so we dont't have to do this more than once
+  var regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/?$/);
+
+  //the padId should be the first match result, the datastoreId the second
+  var padId = regExpResult[1];
+  var datastoreId = regExpResult[2];
+
+  //the elementId has to be generated, since it is not given
+  var elementId = 'e.' + randomString(16);
+
+  //the element data is the request body
+  var elementData = req.body;
+
+  //create or replace the given element
+  _createDatastoreElement(padId, datastoreId, elementId, elementData, function(err)
+  {
+    //the results of that api call should not be cached by the client
+    res.header('Pragma', 'no-cache');
+    res.header('Cache-Control', 'no-cache');
+
+    if(typeof(err) !== 'undefined' && err  !== null)
+      res.send(500);
+    else
+      res.send(200);
+  });
+}
+
+function createNamedDatastoreElement(req, res, handleResult)
+{
+  //TODO: Merge this with createDatastoreElement (just needs a switch based on the regExResult
+
+  //we save the result of the regEx match so we dont't have to do this more than once
+  var regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/?$/);
+
+  //the padId should be the first match result, the datastoreId the second aso.
+  var padId = regExpResult[1];
+  var datastoreId = regExpResult[2];
+  var elementId = regExpResult[3];
+
+  //the element data is the request body
+  var elementData = req.body;
+
+  //create or replace the given element
+  _createDatastoreElement(padId, datastoreId, elementId, elementData, function(err)
+  {
+    //the results of that api call should not be cached by the client
+    res.header('Pragma', 'no-cache');
+    res.header('Cache-Control', 'no-cache');
+
+    if(typeof(err) !== 'undefined' && err  !== null)
+      res.send(500);
+    else
+      res.send(200);
   });
 }
 
