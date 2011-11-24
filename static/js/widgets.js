@@ -42,6 +42,23 @@ $(document).ready(function()
     });
   });
 
+  //create the latex template selctmenu
+  $(function() {
+    $('#templateSelector').selectmenu({
+      width: '120px',
+      //change:  selectmenuChangeHandler
+    }).selectmenu('value','');
+   
+    //somekind of a hack to get the menu where and how
+    $('#templateSelector' + '-button').css({
+      'font-size': '80%',
+      'position' : 'absolute',
+      'right' : '0px',
+      'bottom' : '0px'
+    });
+    $('#templateSelector' + '-menu').css('font-size', '90%');
+  });
+
   //create the selectable metaInformations list inside the accordion
   $(function() {
     $( "#metaInformationsList" ).selectable();
