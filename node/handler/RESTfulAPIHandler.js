@@ -138,12 +138,13 @@ exports.handleApiCall = function(req, res, next)
       regEx: /^pads\/(?:[0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/[0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*\/?$/,
       getHandler: getListOfDatastoreElements,
       postHandler: createDatastoreElement,
+      putHandler: createNamedDatastore,
       deleteHandler: deleteDatastore
     },
     {
-      regEx: /^pads\/(?:[0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/[0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*\/[0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*\/?$/,
+      regEx: /^pads\/(?:[0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/[0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*\/[0-9a-zA-Z_\-]+\.?[0-9a-zA-Z_\-]*\/?$/,
       getHandler: getDatastoreElement,
-      putHandler: changeDatastoreElement,
+      putHandler: createNamedDatastoreElement,
       deleteHandler: deleteDatastoreElement
     }
   ];
@@ -284,7 +285,7 @@ function exportPadRevision(req, res, handleResult)
   var requestedExportFormat = regExpResult[3];
 
   async.waterfall([
-    //is the requested revision the head revision ?
+    //get the revision head (exporting the head revision is less expensive than an arbitrary revision)
     function(callback)
     {
       db.getSub("pad:" + regExpResult[1], ["head"], function(err, revisionHead)
@@ -295,85 +296,126 @@ function exportPadRevision(req, res, handleResult)
           callback(['There is no revision head for that pad!', 403]);
       });
     },
+    //create to directorys common to all exports
     function(revisionHead, callback)
     {
-      //we need to create to LaTeX source in both cases (if it was not created already)
-      if(requestedExportFormat.match(/^(?:latex|pdflatex)$/))
-      {
-        async.waterfall([
-          //since there is nothing like mkdir -p we try to create the necessary directorys which will fail at worst
-          function(callback)
-          {
-            var directory = __dirname + '/../../var/pads';
+      //since there is nothing like mkdir -p we try to create the necessary directorys which will fail at worst
+      var directory = path.normalize(__dirname + '/../../var/pads');
 
+      fs.mkdir(directory, 0755, function(err)
+      {
+        directory += '/' + padId;
+        fs.mkdir(directory, 0755, function(err)
+        {
+          directory += '/exports';
+          fs.mkdir(directory, 0755, function(err)
+          {
+            directory += '/rev' + requestedRevision.toString();
             fs.mkdir(directory, 0755, function(err)
             {
-              directory += '/' + padId;
-              fs.mkdir(directory, 0755, function(err)
+              if(requestedExportFormat === 'latex' || requestedExportFormat === 'pdflatex')
               {
-                directory += '/exports';
+                //the directory will be called 'pdflatex' in both cases
+                directory += '/pdflatex';
                 fs.mkdir(directory, 0755, function(err)
                 {
-                  directory += '/pdflatex' //_rev' + requestedRevision.toString();
-                  fs.mkdir(directory, 0755, function(err)
-                  {
-                    directory += '/rev' + requestedRevision.toString();
-                    fs.mkdir(directory, 0755, function(err)
-                    {
-                      callback(null, directory);
-                    });
-                  });
-                });
-              });
-            });
-          },
-          function(exportDirectory, callback)
-          {
-            var exportFilename = exportDirectory + '/pad.tex';
-
-            //try to open a previous created export file (will also just fail at worst)
-            fs.readFile(exportFilename,function(err, loadedLatexFile)
-            {
-              //if this file does not exist, create it
-              if(typeof(err) !== 'undefined' || err !== null)
-              {
-                //use the latexExport to generate to file content (if the requested revision is the head revision, leave the second parameter null to speed up export)
-                exportLatex.getPadLatexDocument(padId, (requestedRevision === revisionHead) ? null : requestedRevision, function(err, exporterResult)
-                {
-                  //we need no callback here, because don't need to wait for the write to complete
-                  fs.writeFile(exportFilename, exporterResult);
-                  callback(null, exporterResult);
+                  callback(null, revisionHead, directory);;
                 });
               }
-              //else, if this file exists, just call the callback
-              else
-              {
-                callback(null, loadedLatexFile);
-              }
+              else 
+                callback(null, revisionHead, directory);
             });
-          },
-          function(latexExport, callback)
-          {
-            if(requestedExportFormat === 'latex')
-            {
-              res.header('Content-Type', 'text/plain; charset=utf-8');
-              res.send(latexExport, 200);
-            }
-
-            callback(null);
-          }
-        ]);
-      }
-      else if(requestedExportFormat === 'pdflatex')
-      {
-        //get the template urls from the metaInformations datastore
-
-        //if the template files are not in place in var/pads/09sad9as9d9sa/exports/pdflatex/ get them from the db
-      }
-      else if(requestedExportFormat === 'text')
+          });
+        });
+      });
+    },
+    function(revisionHead, exportDirectory, callback)
+    {
+      if(requestedExportFormat === 'text')
       {
         res.header('Content-Type', 'text/plain; charset=utf-8');
         res.send(exportPlainText.getPadPlainText(padId, (requestedRevision === revisionHead) ? null : requestedRevision), 200);
+        callback(null);
+      }
+      else if(requestedExportFormat === 'latex')
+      {
+        exportLatex.getPadLatexDocument(padId, (requestedRevision === revisionHead) ? null : requestedRevision, function(err, result)
+        {
+          if(typeof(err) !== 'undefined' && err !== null)
+          {
+            res.header('Content-Type', 'text/plain; charset=utf-8');
+            res.send(result, 200);
+            callback(null);
+          }
+          else
+            callback(err);
+        });
+      }
+      else if(requestedExportFormat === 'pdflatex')
+      {
+        //needs a better place (the files and this definition
+        templatesBaseDirectory = path.normalize(__dirname + '/../../var/latex-templates');
+
+        async.waterfall([
+          //generate the latex source
+          function(callback)
+          {
+            //if requested revision === head revision, leave second parameter null to speed up export
+            exportLatex.getPadLatexDocument(padId, (requestedRevision === revisionHead) ? null : requestedRevision, callback);
+          },
+          //write the latex source to a file
+          function(padLatex, callback)
+          {
+            fs.writeFile(exportDirectory + '/pad.tex', padLatex, encoding='utf8', function(err)
+            {
+              callback(null);
+            });
+          },
+          function(callback)
+          {
+            var padMetaInformations = {};
+
+            //get pad metaInformations
+            db.get("pad:" + padId + ":datastores:metaInformations", function(err, listOfElements)
+            {
+              async.forEach(listOfElements, function(elementId, callback)
+              {
+                db.get("pad:" + padId + ":datastores:metaInformations:" + elementId, function(err, elementData)
+                {
+                  padMetaInformations[elementId] = elementData;
+                  callback(err);
+                });
+              },
+              function(err)
+              {
+                callback(err, padMetaInformations);
+              });
+            });
+          },
+          function(padMetaInformations, callback)
+          {
+            //symlink the template files into the export directory
+            if(padMetaInformations['latex-template'].templateId === 'ieeetran')
+            {
+              fs.symlink(templatesBaseDirectory, exportDirectory + '/templates', function(err)
+              {
+                callback(null, padMetaInformations);
+              });
+            }
+            else
+              //in order not to get stuck in this waterfall
+              callback(null);
+          },
+          function(err)
+          {
+            res.send(200);
+            callback(null);
+          }
+        ],
+        function(err)
+        {
+          callback(err);
+        });
       }
       else
       {
@@ -383,7 +425,8 @@ function exportPadRevision(req, res, handleResult)
   ],
   function(err)
   {
-    res.send('An errror has occured while trying to do the export.\n', 500);
+    if(typeof(err) !== 'undefined' && err !== null)
+      res.send('An errror has occured while trying to do the export.\n', 500);
   });
 }
 
@@ -444,73 +487,102 @@ function getListOfPadDatastores(req, res, handleResult)
   }
 }
 
-function createDatastore(req, res, handleResult)
+//does the real work, can be called by other api handler functions to
+function _createDatastore(padId, datastoreId, callback)
 {
-  var regExpResult;
-  var datastoreId;
-
-  //check if the request contains a datastoreId or if we have to generate one
-  if(typeof(req.body) === 'undefined' || typeof(req.body.datastoreId) === 'undefined')
+  //check if a datastore with the given (or computed) datastoreId already exists
+  db.get("pad:" + padId + ":datastores:" + datastoreId, function(err, result)
   {
-    //there is no datastoreId, so let's generate one
-    datastoreId = 'd.' + randomString(16);
-  }
-  else
-  {
-    datastoreId = req.body.datastoreId;
-  }
-
-  //the results of that api call should not be cached by the client
-  res.header('Pragma', 'no-cache');
-  res.header('Cache-Control', 'no-cache');
-
-  //which pad do we need to create a datastore in ?
-  if(regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/?$/))
-  {
-    //check if a datastore with the given (or computed) datastoreId already exists
-    db.get("pad:" + regExpResult[1] + ":datastores:" + datastoreId, function(err, result)
+    //if the result is not undefined, than there is already such a datastore
+    if(typeof(result) !== 'undefined')
     {
-      //if the result is not undefined, than there is already such a datastore
-      if(typeof(result) !== 'undefined')
+      callback('Datastore already exists!');
+    }
+    else
+    {
+      //update the datastores list of that pad (no need for async here, this and the next db.set can be executed parallel)
+      db.get("pad:" + padId + ":datastores", function(err, listOfDatastores)
       {
-        res.send('Datastore already exists!', 403);
-        return;
-      }
-      else
-      {
-        //update the datastores list of that pad (no need for async here, this and the next db.set can be executed parallel)
-        db.get("pad:" + regExpResult[1] + ":datastores", function(err, result)
+        //if there are no datastores for that pad yet, initialize the according array
+        if(typeof(listOfDatastores) !== 'object')
         {
-          //if there are no datastores for that pad yet, initialize the according array
-          if(typeof(result) !== 'object')
+          db.set("pad:" + padId + ":datastores", [ datastoreId ]);
+        }
+        //if there are already datastores for that pad, add the given datastoreId to the existing ones
+        else
+        {
+          //This should never happen, but for the sake of safety
+          if(listOfDatastores.indexOf(datastoreId) !== -1)
           {
-            db.set("pad:" + regExpResult[1] + ":datastores", [datastoreId]);
+            callback('This datastore identifier is already already used.');
           }
-          //if there are already datastores for that pad, add the given datastoreId to the existing ones
           else
           {
-            //it should never happen, that there is a entry in the datastores list without a corresponding datastore, but for the sake of safety
-            if(result.indexOf(datastoreId) === -1)
-            {
-              result.push(datastoreId);
-            }
-
-            db.set("pad:" + regExpResult[1] + ":datastores", result);
+            listOfDatastores.push(datastoreId);
           }
-        });
 
-        //initialize the new datastores element list
-        db.set("pad:" + regExpResult[1] + ":datastores:" + datastoreId, []);
-      }
+          //store the updated list of datastores in the db
+          db.set("pad:" + padId + ":datastores", listOfDatastores);
+        }
+      });
 
-      //response with datastoreId to signal a successfull operation 
-      handleResult(null, req, res, datastoreId);
-    });
-  }
-  else
+      //initialize the new datastores element list
+      db.set("pad:" + padId + ":datastores:" + datastoreId, []);
+    }
+
+    //everything went fine, so let's call the callback
+    callback(null);
+  });
+}
+
+function createDatastore(req, res, handleResult)
+{
+  //we save the result of the regEx match so we dont't have to do this more than once
+  var regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/?$/);
+
+  //the padId should be the first match result
+  var padId = regExpResult[1];
+
+  //this is a POST to datastores, so we create a datastoreId on our own and return that id in the end
+  var datastoreId = 'd.' + randomString(16);
+
+  //create the datastore
+  _createDatastore(padId, datastoreId, function(err)
   {
-    res.send(403);
-  }
+    //the results of that api call should not be cached by the client
+    res.header('Pragma', 'no-cache');
+    res.header('Cache-Control', 'no-cache');
+
+    if(err === null)
+      handleResult(null, req, res, datastoreId);
+    else
+      res.send(500);
+  });
+}
+
+function createNamedDatastore(req, res, handleResult)
+{
+  //we save the result of the regEx match so we dont't have to do this more than once
+  var regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/?$/);
+
+  //the padId should be the first match result
+  var padId = regExpResult[1];
+
+  //this is a PUT to a named datastore, so the datastoreId is given by the url
+  var datastoreId = regExpResult[2];
+
+  //create the datastore
+  _createDatastore(padId, datastoreId, function(err)
+  {
+    //the results of that api call should not be cached by the client
+    res.header('Pragma', 'no-cache');
+    res.header('Cache-Control', 'no-cache');
+
+    if(err === null)
+      handleResult(null, req, res, datastoreId);
+    else
+      res.send(500);
+  });
 }
 
 function deleteDatastores(req, res, handleResult)
@@ -540,6 +612,7 @@ function getListOfDatastoreElements(req, res, handleResult)
   }
 }
 
+/* REMOVEME
 function createDatastoreElement(req, res, handleResult)
 {
   var regExpResult;
@@ -635,6 +708,7 @@ function createDatastoreElement(req, res, handleResult)
     return;
   }
 }
+*/
 
 function deleteDatastore(req, res, handleResult)
 {
@@ -646,7 +720,7 @@ function getDatastoreElement(req, res, handleResult)
   var regExpResult;
 
   //which pad, which datastore and which element we need to grab ?
-  if(regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/?$/))
+  if(regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/([0-9a-zA-Z_\-]+\.?[0-9a-zA-Z_\-]*)\/?$/))
   {
     db.get("pad:" + regExpResult[1] + ":datastores:" + regExpResult[2] + ":" + regExpResult[3], function(err, result)
     {
@@ -664,103 +738,121 @@ function getDatastoreElement(req, res, handleResult)
 
 }
 
-function changeDatastoreElement(req, res, handleResult)
+/**
+ * Creates a datastore element. Replaces the element, if it already exists.
+ */
+function _createDatastoreElement(padId, datastoreId, elementId, elementData, callback)
 {
-  var padId;
-  var datastoreId;
-  var elementId;
-  var parameterObject;
-  var datastoreObject;
-
-  function preChecks()
-  {
-    var checksPassed = false;
-
-    async.series([      
-      //check if we can extract the needed parameters from the calling url
-      function(callback)
+  async.parallel([
+    //put the object in the datastore
+    function(callback)
+    {
+      db.set("pad:" + padId + ":datastores:" + datastoreId + ":" + elementId, elementData, callback);
+    },
+    //update the list of elements for the given datastore
+    function(callback)
+    {
+      db.get('pad:' + padId + ':datastores:' + datastoreId, function(err, listOfElements)
       {
-        var regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/?$/)
-      
-        if(regExpResult === null || typeof(regExpResult[1]) !== 'string' || typeof(regExpResult[2]) !== 'string' || typeof(regExpResult[3]) !== 'string')
-        {
-          //signal an error
-          callback(['The requested url does not match the calling conventions.', 403]);
-        }
-        else
-        {
-          //save the results for further usage
-          padId = regExpResult[1];
-          datastoreId = regExpResult[2];
-          elementId = regExpResult[3];
-         
-          //call next function in series
-          callback(null);
-        }
-      },
-      //check if req.body is an object
-      function(callback)
-      {
-        if(typeof(req.body) !== 'object')
-        {
-          //signal an error
-          callback(['The request contains no application/x-www-form-urlencoded or application/json encoded parameter object.', 403]);
-        }
-        else
-        {
-          //save req.body for further usage
-          parameterObject = req.body;
+        //if something went wrong, call the async.parallel callback immediately
+        if(typeof(err) !== 'undefined' && err !== null)
+          callback(err);
 
-          //call next function in series
-          callback(null);
-        }
-      },
-      //check if there is a datastore entry with the given elementId
-      function(callback)
-      {
-        db.get('pad:' + padId + ':datastores:' + datastoreId + ':' + elementId, function(err, result)
+        //if we got a result, check if there is an element with that id already in the datastore 
+        if(typeof(listOfElements) === 'object')
         {
-          if(typeof(result) !== 'object')
+          //this should be an array, so we can use indexOf to search for an element
+          if(listOfElements.indexOf(elementId) > -1)
           {
-            //signal an error
-            callback(['The requested datastore object you wished to replace does not exist.', 403]);
-
-            //TODO: It should be possible to PUT datastore elements even if they don't exist prior
+            //there is an element with the same id, so we don't need to update anything (e.g. replace)
+            callback(null);
           }
           else
           {
-            datastoreObject = result;
+            //there is no element with that id present, so we need to update the list of elements
+            listOfElements.push(elementId);
 
-            //call next function in series
-            callback(null);
+            db.set('pad:' + padId + ':datastores:' + datastoreId, listOfElements, callback);
           }
-        });
-      }
-    ],
-    //final callback
-    function(err, results)
-    {
-      if(typeof(err) === 'object')
-      {
-        res.send(err[0] + '\n', err[1]);
-        checksPassed = false;;
-      }
-      else
-      {
-        checksPassed = true;;
-      }
-    });
-
-    return checksPassed;
-  }
-
-  //perform pre-checks
-  if(preChecks() === false) return;
-
-  //put the object in the datastore
-  db.set("pad:" + padId + ":datastores:" + datastoreId + ":" + elementId, parameterObject, function(err, result)
+        }
+        //if the result is undefined, there is no datastore at all, so we need to create it 
+        else
+        {
+          _createDatastore(padId, datastoreId, function(err)
+          {
+            //if there was an error, call the callback
+            if(typeof(err) !== 'undefined' && err !== null)
+              callback(err);
+            //else store the initial list of elements
+            else
+              db.set('pad:' + padId + ':datastores:' + datastoreId, [ elementId ], callback);
+          });
+        }
+      });
+    }
+  ],
+  function(err)
   {
-    res.send(200);
+    //finally call the main callback
+    callback(err);
+  });
+}
+
+function createDatastoreElement(req, res, handleResult)
+{
+  //we save the result of the regEx match so we dont't have to do this more than once
+  var regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/?$/);
+
+  //the padId should be the first match result, the datastoreId the second
+  var padId = regExpResult[1];
+  var datastoreId = regExpResult[2];
+
+  //the elementId has to be generated, since it is not given
+  var elementId = 'e.' + randomString(16);
+
+  //the element data is the request body
+  var elementData = req.body;
+
+  //create or replace the given element
+  _createDatastoreElement(padId, datastoreId, elementId, elementData, function(err)
+  {
+    //the results of that api call should not be cached by the client
+    res.header('Pragma', 'no-cache');
+    res.header('Cache-Control', 'no-cache');
+
+    if(typeof(err) !== 'undefined' && err  !== null)
+      res.send(500);
+    else
+      res.send(200);
+  });
+}
+
+function createNamedDatastoreElement(req, res, handleResult)
+{
+  //TODO: Merge this with createDatastoreElement (just needs a switch based on the regExResult
+
+  //we save the result of the regEx match so we dont't have to do this more than once
+  var regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/([0-9a-zA-Z_\-]+\.?[0-9a-zA-Z_\-]*)\/?$/);
+
+  //the padId should be the first match result, the datastoreId the second aso.
+  var padId = regExpResult[1];
+  var datastoreId = regExpResult[2];
+  var elementId = regExpResult[3];
+
+  //the element data is the request body
+  var elementData = req.body;
+
+  //create or replace the given element
+  _createDatastoreElement(padId, datastoreId, elementId, elementData, function(err)
+  {
+    //the results of that api call should not be cached by the client
+    res.header('Pragma', 'no-cache');
+    res.header('Cache-Control', 'no-cache');
+
+    if(typeof(err) !== 'undefined' && err  !== null)
+      res.send(500);
+    else
+      res.send(200);
   });
 }
 
@@ -768,7 +860,7 @@ function deleteDatastoreElement(req, res, handleResult)
 {
   var regExpResult;
 
-  if(regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/?$/))
+  if(regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/([0-9a-zA-Z_\-]+\.?[0-9a-zA-Z_\-]*)\/?$/))
   {
     //get the element list for that datastore
     db.get("pad:" + regExpResult[1] + ":datastores:" + regExpResult[2], function(err, result)
