@@ -240,27 +240,6 @@ function getLatexFromAtext(pad, atext)
 
   var intermediateResult = pieces.join('');
 
-  /*
-  //do list processing till level 10
-  for(var i = 10; i > 0; i--)
-  {
-    var listsSubstrings = intermediateResult.match(new RegExp('(\\\\bullet' + parseInt(i) + '\\{\\*\\}[0-9.]+\\n)+', 'g'));
-
-    var element;
-
-    for(element in listsSubstrings)
-    {
-      var substringBegin = intermediateResult.indexOf(listsSubstrings[element]);
-      var substringLength = listsSubstrings[element].length;
-      var substring = intermediateResult.substr(substringBegin, substringLength);
-
-      var replacedSubstring = '\\begin{itemize}\n' + substring.replace(new RegExp('bullet' + parseInt(i) + '\\{\\*\\}([0-9a-zA-Z.]*)\\n','g'),'\item{$1}\n', 'g') + '\\end{itemize}\n';
-
-      var foo = 'bar';
-    }
-  }
-  */
-  
   //second try using per line processing
   var lines = intermediateResult.split('\n');
 
@@ -294,11 +273,21 @@ function getLatexFromAtext(pad, atext)
       }
       else if(currentListLevel < previousListLevel)
       {
-        var firstLevelSpaces = new Array(currentListLevel).join('  ');
-        var secondLevelSpaces = new Array(currentListLevel + 1).join('  ');
+        var closingTags = '';
+        var listLevelDifference = previousListLevel - currentListLevel;
+
+        while(listLevelDifference > 0)
+        {
+          var spaces = new Array((previousListLevel - listLevelDifference) + 1).join('  ');
+
+          closingTags = spaces + '\\end{itemize}\n' + closingTags;
+          listLevelDifference--;
+        }
+
+        var spaces = new Array(currentListLevel + 1).join('  ');
 
         //close old list level
-        lines[lineNumber] = secondLevelSpaces + '\\end{itemize}\n' + firstLevelSpaces  + '\\item{' + lines[lineNumber].replace(/^\\bullet\d\{\*\}/, '') + '}';
+        lines[lineNumber] = closingTags + spaces + '\\item{' + lines[lineNumber].replace(/^\\bullet\d\{\*\}/, '') + '}';
       }
     }
     else
