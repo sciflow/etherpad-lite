@@ -166,32 +166,32 @@ exports.aceCreateDomLine = function(args) {
 
   if (args.cls.indexOf('headings:h1') >= 0) {
     cls = args.cls.replace(/(^| )headings:(\S+)/g, function(x0, space, typOfHeading) { return space + typOfHeading; });
-    return [{cls: cls, extraOpenTags: '<div style="font-size:32px; line-height:36px; font-weight:bold">', extraCloseTags: '</div>'}];
+    return [{cls: cls, extraOpenTags: '<div style="font-size:32px; line-height:36px">', extraCloseTags: '</div>'}];
   }
 
   if (args.cls.indexOf('headings:h2') >= 0) {
     cls = args.cls.replace(/(^| )headings:(\S+)/g, function(x0, space, typOfHeading) { return space + typOfHeading; });
-    return [{cls: cls, extraOpenTags: '<div style="font-size:24px; line-height:28px; font-weight:bold">', extraCloseTags: '</div>'}];
+    return [{cls: cls, extraOpenTags: '<div style="font-size:24px; line-height:28px">', extraCloseTags: '</div>'}];
   }
 
   if (args.cls.indexOf('headings:h3') >= 0) {
     cls = args.cls.replace(/(^| )headings:(\S+)/g, function(x0, space, typOfHeading) { return space + typOfHeading; });
-    return [{cls: cls, extraOpenTags: '<div style="font-size:19px; line-height:23px; font-weight:bold">', extraCloseTags: '</div>'}];
+    return [{cls: cls, extraOpenTags: '<div style="font-size:19px; line-height:23px">', extraCloseTags: '</div>'}];
   }
 
   if (args.cls.indexOf('headings:h4') >= 0) {
     cls = args.cls.replace(/(^| )headings:(\S+)/g, function(x0, space, typOfHeading) { return space + typOfHeading; });
-    return [{cls: cls, extraOpenTags: '<div style="font-size:16px; line-height:18px; font-weight:bold">', extraCloseTags: '</div>'}];
+    return [{cls: cls, extraOpenTags: '<div style="font-size:16px; line-height:18px">', extraCloseTags: '</div>'}];
   }
 
   if (args.cls.indexOf('headings:h5') >= 0) {
     cls = args.cls.replace(/(^| )headings:(\S+)/g, function(x0, space, typOfHeading) { return space + typOfHeading; });
-    return [{cls: cls, extraOpenTags: '<div style="font-size:15px; line-height:17px; font-weight:bold">', extraCloseTags: '</div>'}];
+    return [{cls: cls, extraOpenTags: '<div style="font-size:15px; line-height:17px">', extraCloseTags: '</div>'}];
   }
 
   if (args.cls.indexOf('headings:h6') >= 0) {
     cls = args.cls.replace(/(^| )headings:(\S+)/g, function(x0, space, typOfHeading) { return space + typOfHeading; });
-    return [{cls: cls, extraOpenTags: '<div style="font-size:13px; line-height:15px; font-weight:bold">', extraCloseTags: '</div>'}];
+    return [{cls: cls, extraOpenTags: '<div style="font-size:13px; line-height:15px">', extraCloseTags: '</div>'}];
   }
 /*
   if (args.cls.indexOf('headings:') >= 0) {
