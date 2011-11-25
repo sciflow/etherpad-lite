@@ -142,7 +142,7 @@ exports.handleApiCall = function(req, res, next)
       deleteHandler: deleteDatastore
     },
     {
-      regEx: /^pads\/(?:[0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/[0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*\/[0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*\/?$/,
+      regEx: /^pads\/(?:[0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/[0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*\/[0-9a-zA-Z_\-]+\.?[0-9a-zA-Z_\-]*\/?$/,
       getHandler: getDatastoreElement,
       putHandler: createNamedDatastoreElement,
       deleteHandler: deleteDatastoreElement
@@ -285,7 +285,7 @@ function exportPadRevision(req, res, handleResult)
   var requestedExportFormat = regExpResult[3];
 
   async.waterfall([
-    //is the requested revision the head revision ?
+    //get the revision head (exporting the head revision is less expensive than an arbitrary revision)
     function(callback)
     {
       db.getSub("pad:" + regExpResult[1], ["head"], function(err, revisionHead)
@@ -296,85 +296,126 @@ function exportPadRevision(req, res, handleResult)
           callback(['There is no revision head for that pad!', 403]);
       });
     },
+    //create to directorys common to all exports
     function(revisionHead, callback)
     {
-      //we need to create to LaTeX source in both cases (if it was not created already)
-      if(requestedExportFormat.match(/^(?:latex|pdflatex)$/))
-      {
-        async.waterfall([
-          //since there is nothing like mkdir -p we try to create the necessary directorys which will fail at worst
-          function(callback)
-          {
-            var directory = __dirname + '/../../var/pads';
+      //since there is nothing like mkdir -p we try to create the necessary directorys which will fail at worst
+      var directory = path.normalize(__dirname + '/../../var/pads');
 
+      fs.mkdir(directory, 0755, function(err)
+      {
+        directory += '/' + padId;
+        fs.mkdir(directory, 0755, function(err)
+        {
+          directory += '/exports';
+          fs.mkdir(directory, 0755, function(err)
+          {
+            directory += '/rev' + requestedRevision.toString();
             fs.mkdir(directory, 0755, function(err)
             {
-              directory += '/' + padId;
-              fs.mkdir(directory, 0755, function(err)
+              if(requestedExportFormat === 'latex' || requestedExportFormat === 'pdflatex')
               {
-                directory += '/exports';
+                //the directory will be called 'pdflatex' in both cases
+                directory += '/pdflatex';
                 fs.mkdir(directory, 0755, function(err)
                 {
-                  directory += '/pdflatex' //_rev' + requestedRevision.toString();
-                  fs.mkdir(directory, 0755, function(err)
-                  {
-                    directory += '/rev' + requestedRevision.toString();
-                    fs.mkdir(directory, 0755, function(err)
-                    {
-                      callback(null, directory);
-                    });
-                  });
-                });
-              });
-            });
-          },
-          function(exportDirectory, callback)
-          {
-            var exportFilename = exportDirectory + '/pad.tex';
-
-            //try to open a previous created export file (will also just fail at worst)
-            fs.readFile(exportFilename,function(err, loadedLatexFile)
-            {
-              //if this file does not exist, create it
-              if(typeof(err) !== 'undefined' || err !== null)
-              {
-                //use the latexExport to generate to file content (if the requested revision is the head revision, leave the second parameter null to speed up export)
-                exportLatex.getPadLatexDocument(padId, (requestedRevision === revisionHead) ? null : requestedRevision, function(err, exporterResult)
-                {
-                  //we need no callback here, because don't need to wait for the write to complete
-                  fs.writeFile(exportFilename, exporterResult);
-                  callback(null, exporterResult);
+                  callback(null, revisionHead, directory);;
                 });
               }
-              //else, if this file exists, just call the callback
-              else
-              {
-                callback(null, loadedLatexFile);
-              }
+              else 
+                callback(null, revisionHead, directory);
             });
-          },
-          function(latexExport, callback)
-          {
-            if(requestedExportFormat === 'latex')
-            {
-              res.header('Content-Type', 'text/plain; charset=utf-8');
-              res.send(latexExport, 200);
-            }
-
-            callback(null);
-          }
-        ]);
-      }
-      else if(requestedExportFormat === 'pdflatex')
-      {
-        //get the template urls from the metaInformations datastore
-
-        //if the template files are not in place in var/pads/09sad9as9d9sa/exports/pdflatex/ get them from the db
-      }
-      else if(requestedExportFormat === 'text')
+          });
+        });
+      });
+    },
+    function(revisionHead, exportDirectory, callback)
+    {
+      if(requestedExportFormat === 'text')
       {
         res.header('Content-Type', 'text/plain; charset=utf-8');
         res.send(exportPlainText.getPadPlainText(padId, (requestedRevision === revisionHead) ? null : requestedRevision), 200);
+        callback(null);
+      }
+      else if(requestedExportFormat === 'latex')
+      {
+        exportLatex.getPadLatexDocument(padId, (requestedRevision === revisionHead) ? null : requestedRevision, function(err, result)
+        {
+          if(typeof(err) !== 'undefined' && err !== null)
+          {
+            res.header('Content-Type', 'text/plain; charset=utf-8');
+            res.send(result, 200);
+            callback(null);
+          }
+          else
+            callback(err);
+        });
+      }
+      else if(requestedExportFormat === 'pdflatex')
+      {
+        //needs a better place (the files and this definition
+        templatesBaseDirectory = path.normalize(__dirname + '/../../var/latex-templates');
+
+        async.waterfall([
+          //generate the latex source
+          function(callback)
+          {
+            //if requested revision === head revision, leave second parameter null to speed up export
+            exportLatex.getPadLatexDocument(padId, (requestedRevision === revisionHead) ? null : requestedRevision, callback);
+          },
+          //write the latex source to a file
+          function(padLatex, callback)
+          {
+            fs.writeFile(exportDirectory + '/pad.tex', padLatex, encoding='utf8', function(err)
+            {
+              callback(null);
+            });
+          },
+          function(callback)
+          {
+            var padMetaInformations = {};
+
+            //get pad metaInformations
+            db.get("pad:" + padId + ":datastores:metaInformations", function(err, listOfElements)
+            {
+              async.forEach(listOfElements, function(elementId, callback)
+              {
+                db.get("pad:" + padId + ":datastores:metaInformations:" + elementId, function(err, elementData)
+                {
+                  padMetaInformations[elementId] = elementData;
+                  callback(err);
+                });
+              },
+              function(err)
+              {
+                callback(err, padMetaInformations);
+              });
+            });
+          },
+          function(padMetaInformations, callback)
+          {
+            //symlink the template files into the export directory
+            if(padMetaInformations['latex-template'].templateId === 'ieeetran')
+            {
+              fs.symlink(templatesBaseDirectory, exportDirectory + '/templates', function(err)
+              {
+                callback(null, padMetaInformations);
+              });
+            }
+            else
+              //in order not to get stuck in this waterfall
+              callback(null);
+          },
+          function(err)
+          {
+            res.send(200);
+            callback(null);
+          }
+        ],
+        function(err)
+        {
+          callback(err);
+        });
       }
       else
       {
@@ -384,7 +425,8 @@ function exportPadRevision(req, res, handleResult)
   ],
   function(err)
   {
-    res.send('An errror has occured while trying to do the export.\n', 500);
+    if(typeof(err) !== 'undefined' && err !== null)
+      res.send('An errror has occured while trying to do the export.\n', 500);
   });
 }
 
@@ -678,7 +720,7 @@ function getDatastoreElement(req, res, handleResult)
   var regExpResult;
 
   //which pad, which datastore and which element we need to grab ?
-  if(regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/?$/))
+  if(regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/([0-9a-zA-Z_\-]+\.?[0-9a-zA-Z_\-]*)\/?$/))
   {
     db.get("pad:" + regExpResult[1] + ":datastores:" + regExpResult[2] + ":" + regExpResult[3], function(err, result)
     {
@@ -790,7 +832,7 @@ function createNamedDatastoreElement(req, res, handleResult)
   //TODO: Merge this with createDatastoreElement (just needs a switch based on the regExResult
 
   //we save the result of the regEx match so we dont't have to do this more than once
-  var regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/?$/);
+  var regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/([0-9a-zA-Z_\-]+\.?[0-9a-zA-Z_\-]*)\/?$/);
 
   //the padId should be the first match result, the datastoreId the second aso.
   var padId = regExpResult[1];
@@ -818,7 +860,7 @@ function deleteDatastoreElement(req, res, handleResult)
 {
   var regExpResult;
 
-  if(regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/?$/))
+  if(regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/datastores\/([0-9a-zA-Z_]+\.?[0-9a-zA-Z_]*)\/([0-9a-zA-Z_\-]+\.?[0-9a-zA-Z_\-]*)\/?$/))
   {
     //get the element list for that datastore
     db.get("pad:" + regExpResult[1] + ":datastores:" + regExpResult[2], function(err, result)
