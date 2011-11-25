@@ -414,17 +414,73 @@ function exportPadRevision(req, res, handleResult)
               });
             });
           },
-          //run pdflatex
+          //check if pdfile already exists
           function(padMetaInformations, callback)
           {
-            var pdflatex = child_process.spawn('pdflatex', ['-no-file-line-error', '-interaction=batchmode', padMetaInformations['latex-template'].templateId + '.tex'], { cwd : exportDirectory });
+            var pdfFilePath = exportDirectory + '/' + padMetaInformations['latex-template'].templateId + '.pdf';
 
-            pdflatex.on('exit', function(returnCode)
+            //check if this pdf was already created
+            fs.stat(pdfFilePath, function(err, stats)
             {
-              res.contentType('application/pdf');
-              res.sendfile(exportDirectory + '/' + padMetaInformations['latex-template'].templateId + '.pdf');
-              callback(null);
+              var compilationNeeded = false;
+
+              //if there was somekind of an error, than we need to compile
+              if(typeof(err) !== 'undefined' && err !== null)
+               compilationNeeded = true;
+              
+              callback(null, padMetaInformations, compilationNeeded)
             });
+          },
+          //compile the latex source to pdf (if there is no pdf already to deliver)
+          function(padMetaInformations, compilationNeeded, callback)
+          {
+            var latexFileName = padMetaInformations['latex-template'].templateId + '.tex';
+            var pdflatexParameters = ['-no-file-line-error', '-interaction=batchmode', latexFileName];
+
+            if(compilationNeeded)
+            {
+              async.series([
+                //first run
+                function(callback)
+                {
+                  child_process.spawn('pdflatex', ['-draftmode'].concat(pdflatexParameters), { cwd : exportDirectory }).on('exit', function(returnCode)
+                  {
+                    callback(null)
+                  });
+                },
+                //second run
+                function(callback)
+                {
+                  child_process.spawn('pdflatex', ['-draftmode'].concat(pdflatexParameters), { cwd : exportDirectory }).on('exit', function(returnCode)
+                  {
+                    callback(null)
+                  });
+                },
+                //third run (not in draftmode)
+                function(callback)
+                {
+                  child_process.spawn('pdflatex', pdflatexParameters, { cwd : exportDirectory }).on('exit', function(returnCode)
+                  {
+                    callback(null)
+                  });
+                },
+              ],
+              function(err)
+              {
+                callback(null, padMetaInformations);
+              });
+            }
+            else
+              callback(null, padMetaInformations)
+          },
+          //deliver the pdf file
+          function(padMetaInformations, callback)
+          {
+            var pdfFilePath = exportDirectory + '/' + padMetaInformations['latex-template'].templateId + '.pdf';
+
+            res.contentType('application/pdf');
+            res.sendfile(pdfFilePath);
+            callback(null);
           }
         ],
         function(err)
