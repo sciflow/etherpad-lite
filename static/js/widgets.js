@@ -42,6 +42,54 @@ $(document).ready(function()
     });
   });
 
+  //create the latex template selctmenu
+  $(function() {
+    $('#templateSelector').selectmenu({
+      width: '120px',
+      change: function(e, selectmenuData)
+      {
+        var templateId;
+        var padId = location.href.match(/p\/([0-9a-zA-Z_]+)$/)[1];
+
+        switch(selectmenuData.value)
+        {
+          case "IEEEtran" : templateId = 'ieeetran'; break;
+          case "Springer (llncs)" : templateId = 'springer-llncs'; break;
+          case "Springer (svmult)" : templateId = 'springer-svmult'; break;
+        }
+
+        if(typeof(templateId) !== 'undefined')
+        {
+          $.ajax({
+            url : '/api/2/pads/' + location.href.match(/p\/([0-9a-zA-Z_]+)$/)[1] + '/datastores/metaInformations/latex-template',
+            type : 'PUT',
+            dataType: 'json',
+            async : false,
+            processData: false,
+            contentType : 'application/json',
+            data : JSON.stringify({
+              metaInfoType: 'latex-template',
+              templateId: templateId
+            })
+          });
+        }
+
+      }
+      //change:  selectmenuChangeHandler
+    }).selectmenu('value','');
+
+
+
+    //somekind of a hack to get the menu where and how
+    $('#templateSelector' + '-button').css({
+      'font-size': '80%',
+      'position' : 'absolute',
+      'right' : '0px',
+      'bottom' : '0px'
+    });
+    $('#templateSelector' + '-menu').css('font-size', '90%');
+  });
+
   //create the selectable metaInformations list inside the accordion
   $(function() {
     $( "#metaInformationsList" ).selectable();
@@ -888,7 +936,14 @@ function handleUserInterfaceEvent(event)
   {
     var selectedImage = $('#graphicsList li.ui-selected').find('img');
 
-    //call the additional markup plugin
-    plugins.callHook('handleCommand', {name: 'addGraphic', parameters: { url: $(selectedImage).attr('src') } });
+    if(selectedImage.length > 0)
+    {
+      //call the additional markup plugin
+      plugins.callHook('handleCommand', {name: 'addGraphic', parameters: { url: $(selectedImage).attr('src') } });
+    }
+    else
+    {
+      alert('Please select a graphic to insert.');
+    }
   }
 }
