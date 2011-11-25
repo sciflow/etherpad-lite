@@ -236,32 +236,34 @@ function updateUiWidgets()
       //clear the widget
       $('#' + collection + 'List li').remove();
 
-      for(element in receivedData[collection])
+      for(elementIndex in receivedData[collection])
       {
-        var listText;
+        var element = receivedData[collection][elementIndex];
+        var listText = undefined;
 
         //we need to handle elements of the different collections differently
         if(collection === 'metaInformations')
         {
-          if(typeof(receivedData[collection][element]['data']) === 'object' && typeof(receivedData[collection][element]['data']['metaInfoType']) === 'string')
-            listText = receivedData[collection][element]['data']['metaInfoType'];
+          if(typeof(element['data']) === 'object' && typeof(element['data']['metaInfoType']) === 'string' && typeof(element['data']['templateId']) === 'undefined')
+            listText = element['data']['metaInfoType'];
         }
         else if(collection === 'bibliography')
         {
-          if(typeof(receivedData[collection][element]['data']) === 'object' && typeof(receivedData[collection][element]['data']['title']) === 'string')
-            listText = receivedData[collection][element]['data']['title'];
+          if(typeof(element['data']) === 'object' && typeof(element['data']['title']) === 'string')
+            listText = element['data']['title'];
         }
         else if(collection === 'graphics')
         {
-          if(typeof(receivedData[collection][element]['data']) === 'object' && typeof(receivedData[collection][element]['data']['title']) === 'string')
-            listText = receivedData[collection][element]['data']['title'];
+          if(typeof(element['data']) === 'object' && typeof(element['data']['title']) === 'string')
+            listText = element['data']['title'];
         }
         else
         {
           listText = 'unknown element';
         }
 
-        $('#' + collection + 'List').append('<li id="' + receivedData[collection][element]['id']  + '" style="border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-         width:     0px; border-style: initial; border-color: initial; " class="ui-widget-content ui-selectee">' + listText + '</li>');
+        if(typeof(listText) !== 'undefined')
+          $('#' + collection + 'List').append('<li id="' + element['id']  + '" style="border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-         width:     0px; border-style: initial; border-color: initial; " class="ui-widget-content ui-selectee">' + listText + '</li>');
       }
 
       //restore selected element

@@ -236,7 +236,7 @@ var padimpexp = (function()
       $("#exportwordlea").attr("href", document.location.pathname + "/export/wordle");
       $("#exportlatex").attr("href", '/api/2/pads/' + document.location.pathname.match(/\/p\/(\w*)\/?/)[1] + '/exports/latex');
       $("#exportlatex .exporttype").css('background-position', '2px -121px');
-      $("#exportpdflatex").attr("href", '/api/2/pads/' + document.location.pathname.match(/\/p\/(\w*)\/?/)[1] + '/exports/pdflatex');
+      $("#exportpdflatex").attr("href", '/static/viewPdf.html?padId=' + document.location.pathname.match(/\/p\/(\w*)\/?/)[1]);
       $("#exportpdflatex .exporttype").css('background-position', '2px -97px');
       
       //hide stuff thats not avaible if abiword is disabled
