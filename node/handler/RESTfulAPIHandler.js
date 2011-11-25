@@ -20,6 +20,8 @@
 
 var fs = require("fs");
 var path = require("path");
+var child_process = require("child_process");
+
 var async = require('async');
 
 var api = require("../db/API");
@@ -269,7 +271,6 @@ function getListOfAvailableExportFormats(req, res, handleResult)
     'text/xhtml+xml',
     'application/pdf',
     'application/x-latex',
-    'application/x-latex+pdf'   //I know, there is no such MIME typ, but we have to distinguish between Abiword pdf export and pdflatex
   ];
 
   handleResult(null, req, res, result);
@@ -392,24 +393,38 @@ function exportPadRevision(req, res, handleResult)
               });
             });
           },
+          //symlink the template files into the export directory
           function(padMetaInformations, callback)
           {
-            //symlink the template files into the export directory
-            if(padMetaInformations['latex-template'].templateId === 'ieeetran')
+            fs.readdir(templatesBaseDirectory + '/' + padMetaInformations['latex-template'].templateId, function(err, files)
             {
-              fs.symlink(templatesBaseDirectory, exportDirectory + '/templates', function(err)
+              async.forEach(files, function(filename, callback)
               {
-                callback(null, padMetaInformations);
+                var linkTarget = templatesBaseDirectory + '/' + padMetaInformations['latex-template'].templateId + '/' + filename;
+                var linkPath = exportDirectory + '/' + filename;
+
+                fs.symlink(linkTarget, linkPath,  function(err)
+                {
+                  callback(null);
+                });
+              },
+              function(err)
+              {
+                callback(err, padMetaInformations);
               });
-            }
-            else
-              //in order not to get stuck in this waterfall
-              callback(null);
+            });
           },
-          function(err)
+          //run pdflatex
+          function(padMetaInformations, callback)
           {
-            res.send(200);
-            callback(null);
+            var pdflatex = child_process.spawn('pdflatex', ['-no-file-line-error', '-interaction=batchmode', padMetaInformations['latex-template'].templateId + '.tex'], { cwd : exportDirectory });
+
+            pdflatex.on('exit', function(returnCode)
+            {
+              res.contentType('application/pdf');
+              res.sendfile(exportDirectory + '/' + padMetaInformations['latex-template'].templateId + '.pdf');
+              callback(null);
+            });
           }
         ],
         function(err)
