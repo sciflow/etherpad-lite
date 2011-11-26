@@ -19,7 +19,9 @@
  */
 
 var fs = require("fs");
+var http =require("http");
 var path = require("path");
+var url = require("url");
 var child_process = require("child_process");
 
 var async = require('async');
@@ -343,13 +345,13 @@ function exportPadRevision(req, res, handleResult)
         exportLatex.getPadLatexDocument(padId, (requestedRevision === revisionHead) ? null : requestedRevision, function(err, result)
         {
           if(typeof(err) !== 'undefined' && err !== null)
+            callback(err);
+          else
           {
             res.header('Content-Type', 'text/plain; charset=utf-8');
             res.send(result, 200);
             callback(null);
           }
-          else
-            callback(err);
         });
       }
       else if(requestedExportFormat === 'pdflatex')
@@ -364,6 +366,45 @@ function exportPadRevision(req, res, handleResult)
             //if requested revision === head revision, leave second parameter null to speed up export
             exportLatex.getPadLatexDocument(padId, (requestedRevision === revisionHead) ? null : requestedRevision, callback);
           },
+          //replace graphic urls with paths
+          function(padLatex, callback)
+          {
+            var includegraphicsStatements = padLatex.match(/\\includegraphics\[.*\]\{.+\s*\}/g);
+            var graphicsDirectory = path.normalize(exportDirectory + '/../../');
+
+            async.forEach(includegraphicsStatements, function(statement, callback)
+            {
+              var graphicUrl = statement.replace(/\\includegraphics\[.*\]\{/, '').replace(/\s*\}.*$/, '');;
+              
+              //tha path is constructed by the graphics directory and the filename part of the url
+              var graphicPath = graphicsDirectory + graphicUrl.match(/([^\/]+)$/)[1]; 
+ 
+              //load images only if they are not present
+              fs.stat(graphicPath, function(err, stats)
+              {
+                //if there was somekind of an error, than we need to load the graphic
+                if(typeof(err) !== 'undefined' && err !== null)
+                {
+                  child_process.spawn('curl', ['-s', '-O', graphicUrl], { cwd : graphicsDirectory }).on('exit', function (returnCode)
+                  {
+                    //duplicated code !!!
+                    padLatex = padLatex.replace(statement, statement.replace(/\{.*\}/, '{../../' + graphicUrl.match(/([^\/]+)$/)[1] + '}'));
+                    callback(null);
+                  });
+                }
+                else
+                {
+                  //new replace the url with the local path in padLatex
+                  padLatex = padLatex.replace(statement, statement.replace(/\{.*\}/, '{../../' + graphicUrl.match(/([^\/]+)$/)[1] + '}'));
+                  callback(null);
+                }
+              });
+            },
+            function(err)
+            {
+              callback(null, padLatex);
+            });
+          },
           //write the latex source to a file
           function(padLatex, callback)
           {
@@ -372,6 +413,7 @@ function exportPadRevision(req, res, handleResult)
               callback(null);
             });
           },
+          //get pad metaInformations
           function(callback)
           {
             var padMetaInformations = {};
@@ -389,6 +431,9 @@ function exportPadRevision(req, res, handleResult)
               },
               function(err)
               {
+                //if there is no template, take ieeetran
+                padMetaInformations['latex-template'] = (typeof(padMetaInformations['latex-template']) === 'undefined') ? { templateId : 'ieeetran' } : padMetaInformations['latex-template'];
+
                 callback(err, padMetaInformations);
               });
             });
@@ -461,7 +506,7 @@ function exportPadRevision(req, res, handleResult)
                 {
                   child_process.spawn('pdflatex', pdflatexParameters, { cwd : exportDirectory }).on('exit', function(returnCode)
                   {
-                    callback(null)
+                    callback(null);
                   });
                 },
               ],
@@ -506,34 +551,14 @@ function exportPad(req, res, handleResult)
   //we need to know, which pad, which revision and which output format
   var regExpResult = req.params[0].match(/^pads\/([0-9a-zA-Z]{10}|g.[0-9a-zA-Z]{16}\$[0-9a-zA-Z]+)\/exports\/([0-9a-zA-Z_]+)\/?$/);
 
-  if(regExpResult[2].match(/^pdflatex$/i))
-  {
-    exportLatex.getPadLatexDocument(regExpResult[1], undefined, function(err, result)
-    {
-      res.contentType('application/pdf');
-      res.sendfile(path.normalize(__dirname + '/../../tmp/sigproc-sp.pdf'));
-    });
+  var padId = regExpResult[1];
+  var exportFormat = regExpResult[2];
 
-    /*
-    //send pdf
-    fs.readFile(path.normalize(__dirname + '/../../tmp/sigproc-sp.pdf'), function(err, content) {
-      res.contentType('application/pdf');
-      res.send('Here comes the file');
-    });
-    */
-  }
-  else if(regExpResult[2].match(/^latex$/i))
+  //redirect to the export of the latex revision
+  db.getSub("pad:" + regExpResult[1], ["head"], function(err, headRevision)
   {
-    exportLatex.getPadLatexDocument(regExpResult[1], undefined, function(err, result)
-    {
-      res.contentType('application/text');
-      res.send(result, 200);
-    });
-  }
-  else
-  {
-    res.send(404);
-  }
+    res.redirect('/api/2/pads/' + padId + '/revisions/' + headRevision.toString() + '/exports/' + exportFormat);
+  });
 }
 
 
@@ -937,7 +962,7 @@ function deleteDatastoreElement(req, res, handleResult)
     db.get("pad:" + regExpResult[1] + ":datastores:" + regExpResult[2], function(err, result)
     {
       //if there exists such an element in that datastore, 
-      if(result.indexOf(regExpResult[3]) !== -1)
+      if(typeof(result) === 'object' && result.indexOf(regExpResult[3]) !== -1)
       {
         //use splice to remove the element from the list
         result.splice(result.indexOf(regExpResult[3]), 1);
