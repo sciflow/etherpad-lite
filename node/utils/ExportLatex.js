@@ -110,7 +110,7 @@ function generateExportTags(attributeName, attributeValue, tagType)
   else if (attributeName === 'heading5')      return (tagType === 'openTag') ? '\\paragraph{'                        : '}\n';
   else if (attributeName === 'heading6')      return (tagType === 'openTag') ? '\\subparagraph{'                     : '}\n';
   else if (attributeName === 'graphic')
-    return (tagType === 'openTag') ? '\\includegraphics{' + JSON.parse(attributeValue).url                           : '}';
+    return (tagType === 'openTag') ? '\\begin{figure}\n  \\centering\n  \\includegraphics[width=\\columnwidth, keepaspectratio=true]{' + JSON.parse(attributeValue).url                           : '}\n  \\caption{Ein Bild}\n\\end{figure}';
   else if (attributeName === 'cite')          return (tagType === 'openTag') ? '\\cite{'            + attributeValue : '}';
   else if (attributeName === 'footnote')      return (tagType === 'openTag') ? '\\footnote{'        + attributeValue : '}';
   else return '';
