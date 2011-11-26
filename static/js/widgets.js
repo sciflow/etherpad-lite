@@ -73,10 +73,9 @@ $(document).ready(function()
             })
           });
         }
-
       }
       //change:  selectmenuChangeHandler
-    }).selectmenu('value','');
+    });
 
 
 
@@ -183,48 +182,6 @@ function updateUiWidgets()
     }
   }
 
-  /*
-  //check if we have to update the widget
-  for(collection in receivedData)
-  {
-    //is there even anything in the datastore ?
-    if(typeof(receivedData[collection]) !== 'undefined' && receivedData[collection] !== null)
-    {
-      var updateWidget = false;
-
-      //we need to update the widget if the number of elements from the response and the widget does not match
-      if($('#bibliographyList li').length !== receivedData[collection].length)
-      {
-        updateWidget = true;
-      }
-      //even if the number of elements matches, we might have to update
-      else
-      {
-        for(element in receivedData[collection])
-        {
-          if(updateWidget === false &&  $('#bibliographyList li[id="' + receivedData[collection][element]['id'] +  '"]').length === 0)
-          {
-            updateWidget = true;
-          }
-        }
-      }
-
-      if(updateWidget === true)
-      {
-        //update the widget if its needed
-        $('#' + collection + 'List li').remove();
-
-        for(element in receivedData[collection])
-        {
-          if(typeof(receivedData[collection][element]['data']) !== 'undefined' && typeof(receivedData[collection][element]['data']['title']) !== 'undefined')
-          {
-          $('#' + collection + 'List').append('<li id="' + receivedData[collection][element]['id']  + '" style="border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width:     0px; border-style: initial; border-color: initial; " class="ui-widget-content ui-selectee">' + receivedData[collection][element]['data']['title'] + '</li>');
-          }
-        }
-      }
-    }
-  }
-  */
   for(collection in receivedData)
   {
     //is there even anything in the datastore ?
@@ -244,8 +201,21 @@ function updateUiWidgets()
         //we need to handle elements of the different collections differently
         if(collection === 'metaInformations')
         {
-          if(typeof(element['data']) === 'object' && typeof(element['data']['metaInfoType']) === 'string' && typeof(element['data']['templateId']) === 'undefined')
-            listText = element['data']['metaInfoType'];
+          if(typeof(element['data']) === 'object' && typeof(element['data']['metaInfoType']) === 'string')
+          {
+            if(typeof(element['data']['templateId']) === 'undefined')
+              listText = element['data']['metaInfoType'];
+            else
+            { 
+              switch(element['data']['templateId'])
+              {
+                //the val thing is needed for the first page load, where the selectmenu would maybe not exist
+                case 'ieeetran': $('#templateSelector').val('IEEEtran').selectmenu('value','IEEEtran'); break;
+                case 'springer-llncs': $('#templateSelector').val('Springer (llncs)').selectmenu('value','Springer (llncs)'); break;
+                case 'springer-svmult': $('#templateSelector').val('Springer (svmult)').selectmenu('value', 'Springer (svmult)'); break;
+              }
+            }
+          }
         }
         else if(collection === 'bibliography')
         {
@@ -263,7 +233,12 @@ function updateUiWidgets()
         }
 
         if(typeof(listText) !== 'undefined')
-          $('#' + collection + 'List').append('<li id="' + element['id']  + '" style="border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-         width:     0px; border-style: initial; border-color: initial; " class="ui-widget-content ui-selectee">' + listText + '</li>');
+        {
+          if(collection === 'graphics')
+             $('#' + collection + 'List').append('<li id="' + element['id']  + '"class="ui-widget-content ui-selectee"><div class="ui-widget-header">' + listText + '</div><img src="' + element['data']['url'] + '" height="96" //></li>');
+          else
+            $('#' + collection + 'List').append('<li id="' + element['id']  + '" style="border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-         width:     0px; border-style: initial; border-color: initial; " class="ui-widget-content ui-selectee">' + listText + '</li>');
+        }
       }
 
       //restore selected element
@@ -808,29 +783,20 @@ function handleUserInterfaceEvent(event)
   //
   else if(event.origin === 'bibliographyCommandBar.DeleteButton')
   {
-    var item;
-
     //get the element which should be deleted
-    var itemsToDelete = $('#bibliographyList li.ui-selected');
-
-    if(itemsToDelete.length === 0)
-    {
-      //there are no items selected
-      return;
-    }
-
-    for(item in itemsToDelete)
+    $('#bibliographyList li.ui-selected').each(function(index, element)
     {
       //try to delete the item using delete api calls
       $.ajax({
-        url : '/api/2/pads/' + location.href.match(/p\/([0-9a-zA-Z_]+)$/)[1] + '/datastores/bibliography/' + $(itemsToDelete[item]).attr('id'),
+        url : '/api/2/pads/' + location.href.match(/p\/([0-9a-zA-Z_]+)$/)[1] + '/datastores/bibliography/' + $(this).attr('id'),
         type : 'DELETE',
         async: false,
       });
-
-      $(itemsToDelete[item]).remove();
-    }
+    }).remove();
   }
+  //
+  // Graphic preview/zoomin
+  //
   else if(event.origin === 'graphicsCommandBar.ZoominButton')
   {
     var selectedImage = $('#graphicsList li.ui-selected').find('img');
@@ -838,6 +804,9 @@ function handleUserInterfaceEvent(event)
     //just handle the first one, if multiple images are selected
     var previewDialog = $('<div><img src=' + selectedImage.attr('src') + ' /></div>').dialog({autoOpen: true, title: 'Preview', modal: true, width: 400});
   }
+  //
+  // Add graphic
+  //
   else if(event.origin === 'graphicsCommandBar.AddButton')
   { 
     var dialogHtml = '\
@@ -845,6 +814,8 @@ function handleUserInterfaceEvent(event)
         <fieldset>\
           <label for="title">Title</label>\
           <input type="text" name="title" class="text ui-widget-content ui-corner-all" />\
+          <label for="caption">Caption</label>\
+          <input type="text" name="caption" class="text ui-widget-content ui-corner-all" />\
           <label for="url">Url</label>\
           <input type="text" name="url" class="text ui-widget-content ui-corner-all" />\
         </fieldset>\
@@ -853,20 +824,28 @@ function handleUserInterfaceEvent(event)
     
     function addButtonHandler()
     {
-      var imageTitle = $(this).find('input[name="title"]').val();
-      var imageUrl = $(this).find('input[name="url"]').val();
+      var dialog = $(this);
 
-      
-      var addedGraphic = $('#graphicsList').prepend('\
-      <li class="ui-widget-content">\
-        <div class="ui-widget-header" >' + imageTitle + '</div>\
-        <img src="' + imageUrl + '" height="96" //>\
-        </li>\
-      ');
-      
-      //$(addedGraphic).find('li').show('highlight', 'slow', setTimeout($(this).dialog("close"),1));
-      $(this).dialog("close");
+      //build the parameter object used when calling the api
+      var requestParameter = {
+        title : dialog.find('input[name="title"]').val(),
+        caption : dialog.find('input[name="caption"]').val(),
+        url : dialog.find('input[name="url"]').val(),
+      };
 
+      $.ajax({
+        url : '/api/2/pads/' + location.href.match(/p\/([0-9a-zA-Z_]+)$/)[1] + '/datastores/graphics',
+        type : 'POST',
+        dataType: 'json',
+        async : false,
+        processData: false,
+        contentType : 'application/json',
+        data : JSON.stringify(requestParameter)
+      });
+
+      updateUiWidgets();
+
+      dialog.dialog("close");
     }
     
     var cancelButtonHandler = function()
@@ -892,6 +871,9 @@ function handleUserInterfaceEvent(event)
       ]
     });
   }
+  //
+  // Delete graphic
+  //
   else if(event.origin === 'graphicsCommandBar.DeleteButton')
   { 
     var dialogHtml = '\
@@ -904,13 +886,23 @@ function handleUserInterfaceEvent(event)
 
     var deleteButtonHandler = function()
     {
-      var itemToRemove = $('#graphicsList li.ui-selected');
-      
-      $(itemToRemove).hide('highlight', 'slow', function() { $(itemToRemove).remove(); });
-      
-      $(this).dialog("close");
-    }
+      var dialog = $(this);
     
+      //get the element which should be deleted
+      $('#graphicsList li.ui-selected').each(function(index, element)
+      {
+        //try to delete the item using delete api calls
+        $.ajax({
+          url : '/api/2/pads/' + location.href.match(/p\/([0-9a-zA-Z_]+)$/)[1] + '/datastores/graphics/' + $(this).attr('id'),
+          type : 'DELETE',
+          async: false,
+          error: function() { }
+        });
+      }).remove();
+
+      dialog.dialog("close");
+    }
+      
     var cancelButtonHandler = function()
     {
       $(this).dialog("close");
@@ -918,7 +910,7 @@ function handleUserInterfaceEvent(event)
     
     //just handle the first one, if multiple images are selected
     var DeleteDialog = $(dialogHtml).dialog({
-      autoOpen: true,
+      autoOpen: false,
       title: 'Remove grahpic',
       modal: true,
       width: 400, 
@@ -933,7 +925,13 @@ function handleUserInterfaceEvent(event)
         }
       ]
     });
+
+    DeleteDialog.dialog('open');
+
   }
+  //
+  // Insert graphic
+  //
   else if(event.origin === 'graphicsCommandBar.InsertButton')
   {
     var selectedImage = $('#graphicsList li.ui-selected').find('img');
