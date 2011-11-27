@@ -683,7 +683,7 @@ function createNamedDatastore(req, res, handleResult)
 
 function deleteDatastores(req, res, handleResult)
 {
-
+  res.send(501);
 }
 
 function getListOfDatastoreElements(req, res, handleResult)
@@ -808,7 +808,7 @@ function createDatastoreElement(req, res, handleResult)
 
 function deleteDatastore(req, res, handleResult)
 {
-
+  res.send(501);
 }
 
 function getDatastoreElement(req, res, handleResult)
@@ -919,7 +919,10 @@ function createDatastoreElement(req, res, handleResult)
     if(typeof(err) !== 'undefined' && err  !== null)
       res.send(500);
     else
-      res.send(200);
+    {
+      res.contentType('application/json');
+      res.send(JSON.stringify(elementId));
+    }
   });
 }
 
