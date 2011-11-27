@@ -1,6 +1,317 @@
+//create global sciflow object which holds references to sciflow functions
+var sciflow = {};
+
+/////////////////////
+// Default values  //
+/////////////////////
+
+sciflow.apiPath = '/api/2';
+
+//////////////////////
+// helper functions //
+//////////////////////
+
+sciflow.getPadId = function()
+{
+  //do regex match to extract to padId from the url
+  var regExpResult = location.href.match(/p\/([0-9a-zA-Z_]+)$/);
+
+  if(typeof(regExpResult) === 'object' && typeof(regExpResult[1]) !== 'undefined')
+    return padId = regExpResult[1];
+}
+
+sciflow.isJQueryObject = function(value)
+{
+  if(typeof(value) !== 'undefined')
+  {
+    return (value instanceof(jQuery));
+  }
+  else
+    return false;
+}
+
+sciflow.getSelectedElementsFromWidget = function(widget)
+{
+  if(sciflow.isJQueryObject(widget) === false)
+    return;
+
+  return(widget.find(li.ui-selected));
+}
+
+//if passed a string larger then length, create something like "Here comes a long ..."
+sciflow.getFixedSizeString = function(givenString, requestedLength)
+{
+  if(typeof(givenString) === 'string' && typeof(requestedLength) === 'number')
+    return (givenString.length > requestedLength) ? givenString.substr(0, requestedLength - 4) + ' ...' : givenString;
+}
+
+//////////////////////////
+// datastore operations //
+//////////////////////////
+
+//adds an element to a datastore (elementId and callback are optional), returns the elementId of the added element
+sciflow.addElementToDatastore = function(datastoreId, elementData, elementId, callback)
+{
+  var ajaxResult;
+
+  function successHandler(data, textStatus, jqXHR)
+  {
+    ajaxResult = data;
+  }
+
+  function completeHandler(jqXHR, textStatus)
+  {
+    if(typeof(ajaxResult) === 'undefined')
+      ajaxResult = (textStatus === 'OK') ? elementId : textStatus; 
+
+    if(typeof(callback) === 'function')
+      callback(ajaxResult);
+  }
+
+  //if the caller passes a callback but no elementId
+  if(typeof(callback) === 'undefined' && typeof(elementId) === 'function')
+    callback = elementId;
+
+  var nonDefaultAjaxSettings = {};
+
+  //if there is a callback, make the ajax call asynchronous
+  if(typeof(callback) === 'function')
+  {
+    $.extend(nonDefaultAjaxSettings, {
+      async: true
+    });
+  }
+
+  //if there is an elementId make the call a PUT
+  if(typeof(elementId) === 'string')
+  {
+    $.extend(nonDefaultAjaxSettings, {
+      url: sciflow.apiPath + '/pads/' + sciflow.getPadId() + '/datastores/' + datastoreId + '/' + elementId,
+      type: 'PUT',
+      dataType: null //since the response is empty even on success (just HTTP 200) we need to disable dataType to avoid 'parsererror'
+    });
+  }
+    
+  $.ajax($.extend({
+    url : sciflow.apiPath + '/pads/' + sciflow.getPadId() + '/datastores/' + datastoreId,
+    type : 'POST',
+    contentType : 'application/json',
+    dataType: 'json',
+    data : JSON.stringify(elementData),
+    processData: false,
+    async : false,
+    success: successHandler,
+    complete: completeHandler
+  }, nonDefaultAjaxSettings));
+
+  //if no callback was given, return the result
+  if(typeof(callback) !== 'function')
+    return ajaxResult;
+}
+
+//gets an element from a datastore (elementId and callback are optional)
+sciflow.getElementFromDatastore = function(datastoreId, elementId, callback)
+{
+  var ajaxResult;
+
+  function successHandler(data, textStatus, jqXHR)
+  {
+    ajaxResult = data;
+  }
+
+  function completeHandler(jqXHR, textStatus)
+  {
+    if(typeof(callback) === 'function')
+      callback(ajaxResult);
+  }
+
+  //if the caller passes a callback but no elementId
+  if(typeof(callback) === 'undefined' && typeof(elementId) === 'function')
+    callback = elementId;
+
+  var nonDefaultAjaxSettings = {};
+
+  //if no elementId was given, make a GET to the datastore to retrieve a list of elements in that datastore
+  if(typeof(elementId) !== 'string')
+  {
+    $.extend(nonDefaultAjaxSettings, {
+      url: sciflow.apiPath + '/pads/' + sciflow.getPadId() + '/datastores/' + datastoreId,
+    });
+  }
+
+  //if there is a callback, make the ajax call asynchronous
+  if(typeof(callback) === 'function')
+  {
+    $.extend(nonDefaultAjaxSettings, {
+      async: true
+    });
+  }
+
+  //issue the datastore request
+  $.ajax($.extend({
+    url : sciflow.apiPath + '/pads/' + sciflow.getPadId() + '/datastores/' + datastoreId + '/' + elementId,
+    type : 'GET',
+    dataType: 'json',
+    async: false,
+    success: successHandler,
+    complete: completeHandler
+  }, nonDefaultAjaxSettings));
+
+  //if no callback was given, return the result
+  if(typeof(callback) !== 'function')
+    return ajaxResult;
+}
+
+sciflow.getListOfDatastoreElements = function(datastoreId, callback)
+{
+  return sciflow.getElementFromDatastore(datastoreId, callback);
+}
+
+//remove meta information in datastore (elementId and callback are optional)
+sciflow.deleteElementFromDatastore = function(datastoreId, elementId, callback)
+{
+  var ajaxResult;
+
+  function successHandler(data, textStatus, jqXHR)
+  {
+    ajaxResult = data;
+  }
+
+  function completeHandler(jqXHR, textStatus)
+  {
+    if(typeof(ajaxResult) === 'undefined')
+      ajaxResult = textStatus;
+
+    if(typeof(callback) === 'function')
+      callback(ajaxResult);
+  }
+
+  //if the caller passes a callback but no elementId
+  if(typeof(callback) === 'undefined' && typeof(elementId) === 'function')
+    callback = elementId;
+
+  var nonDefaultAjaxSettings = {};
+
+  //if no elementId was given, delete the whole datastore
+  if(typeof(elementId) !== 'string')
+  {
+    $.extend(nonDefaultAjaxSettings, {
+      url: sciflow.apiPath + '/pads/' + sciflow.getPadId() + '/datastores/' + datastoreId,
+    });
+  }
+
+  //if there is a callback, make the ajax call asynchronous
+  if(typeof(callback) === 'function')
+  {
+    $.extend(nonDefaultAjaxSettings, {
+      async: true
+    });
+  }
+  
+  //try to delete the item using delete api calls
+  $.ajax($.extend({
+    url : sciflow.apiPath + '/pads/' + sciflow.getPadId() + '/datastores/' + datastoreId + '/' + elementId,
+    type : 'DELETE',
+    async: false,
+    success: successHandler,
+    complete: completeHandler
+  }, nonDefaultAjaxSettings));
+
+  //if no callback was given, return the result
+  if(typeof(callback) !== 'function')
+    return ajaxResult;
+} 
+
+////////////////////////
+// sciflow components //
+////////////////////////
+
+sciflow.components = {
+  metaInformations : {},
+  bibliography: {},
+  graphics: {}
+};
+
+////////////////////////////////
+// metaInformations component //
+////////////////////////////////
+
+sciflow.components.metaInformations.widget = $('#sciflow-components-metaInformations-widget');
+
+//updates the widget and the datastore (metaInformationId is optional, if given, is used as elementId by the datastore)
+sciflow.components.metaInformations.addMetaInformation = function(metaInformation, metaInformationId)
+{
+  //for a meta information to make sense it hase to be some kind of object
+  if(typeof(metaInformation) !== 'object')
+    return;
+
+  if(typeof(metaInformationId) !== 'string')
+    metaInformationId = undefined;
+
+  sciflow.AddElementToDatastore('metaInformations', metaInformation, metaInformationId, function(requestResult)
+  {
+    var listItemHtml = sciflow.components.metaInformations.createListItemHtml(metaInformation, (typeof(metaInformationId) === 'string') ? metaInformationId : requestResult['id'], 20);
+
+    //if the element was successfully added, update the widget
+    sciflow.components.metaInformations.widget.find('ol, ul').append(listItemHtml);
+  });
+}
+
+
+sciflow.initializeWidgetFromDatastore = function(datastoreId, widget, listItemHtmlGenerator)
+{
+  sciflow.getListOfDatastoreElements(datastoreId, function(listOfElements)
+  {
+    async.forEach(listOfElements, function(elementId, callback)
+    {
+      sciflow.getElementFromDatastore(datastoreId, elementId, function(elementData)
+      {
+        listOfElements[listOfElements.indexOf(elementId)] = { elementId: elementId, elementData: elementData };
+        callback(null);
+      });
+    },
+    function(err)
+    {
+      listOfElements.forEach(function(element)
+      {
+        var listItemHtml = listItemHtmlGenerator(element['elementData'], element['elementId'], 20);
+        widget.find('ol, ul').append(listItemHtml);
+      });
+    });
+  });
+}
+
+
+//creates the html of an li element of the meta informations list (part of the meta informations widget)
+sciflow.components.metaInformations.listItemHtmlGenerator = function(metaInformation, metaInformationId, elementDescriptorMaxLength)
+{
+  var elementDescriptor;
+
+  switch(metaInformation.type)
+  {
+    case "author": elementDescriptor = 'Author (' + sciflow.getFixedSizeString(metaInformation.name, elementDescriptorMaxLength) + ')'; break;
+    case "title": elementDescriptor = 'Title (' + sciflow.getFixedSizeString(metaInformation.title, elementDescriptorMaxLength) + ')'; break;
+    case "subtitle": elementDescriptor = 'Subtitle (' + sciflow.getFixedSizeString(metaInformation.subtitle, elementDescriptorMaxLength) + ')'; break;
+    case "keywords": elementDescriptor = 'Keywords (' + sciflow.getFixedSizeString(metaInformation.keywords, elementDescriptorMaxLength) + ')'; break;
+    default: elementDescriptor = 'Unknown type of metaInformation'; break;
+  }
+
+  //if the element was successfully added, update the widget
+  return('<li id="' + metaInformationId + '" style="border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width: 0px; border-style: initial; border-color: initial; " class="ui-widget-content ui-selectee">' + elementDescriptor + '</li>');
+}
+
+
+sciflow.components.metaInformations.showAddDialog = function()
+{
+
+}
+
 //call updateUiWidgets the first time when the document is ready (will be call by setInterval later on)
 $(document).ready(function()
 {
+  //new code
+  sciflow.components.metaInformations.widget = $('#sciflow-components-metaInformations-widget');
+
   //create the heading selector select menu
   $(function() {
     $('#headingSelector').selectmenu({
@@ -542,7 +853,7 @@ function handleUserInterfaceEvent(event)
     $(dialog).dialog('open');
   }
   //
-  // Delete bibliography
+  // Delete metaInformations 
   //
   else if(event.origin === 'metaInformationsCommandBar.DeleteButton')
   {
