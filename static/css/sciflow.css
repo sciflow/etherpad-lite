@@ -1,0 +1,10 @@
+.ui-dialog #adress {
+  width: 95%;
+  height: 55px;
+  padding: .4em;
+}
+
+.ui-dialog [id*=-button] {
+  margin-top: 5px;
+  margin-bottom: 5px;
+}

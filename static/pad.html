@@ -6,6 +6,7 @@
   <title>Etherpad Lite</title>
   <!-- CSS -->
   <link href="../static/css/pad.css" rel="stylesheet">
+  <link href="../static/css/sciflow.css" rel="stylesheet">
   <!-- javascript -->
   <script type="text/javascript">
   // <![CDATA[
@@ -197,23 +198,11 @@
   <div id="accordionContainer" class="ui-widget">
     <div id="accordion">
       <h3><a href="#">Meta Informations</a></h3>
-      <div id="sciflow-components-metaInformations-widget" style="position:relative; padding-left: 10px; padding-right: 5px;">
+      <div id="sciflow-metaInformations-widget" style="position:relative; padding-left: 10px; padding-right: 5px;">
         <div id="metaInformationsCommandBar" style="position:relative; top:0px">
-          <a style="position:absolute; right:0px" class="ui-icon ui-icon-wrench" href="javascript:handleUserInterfaceEvent({
-            origin: 'metaInformationsCommandBar.ChangeButton',
-            parameters: {
-            }
-          })"></a>
-          <a style="position:absolute; right:16px" class="ui-icon ui-icon-minus" href="javascript:handleUserInterfaceEvent({
-            origin: 'metaInformationsCommandBar.DeleteButton',
-            parameters: {
-            }
-          })"></a>
-          <a style="position:absolute; right:32px" class="ui-icon ui-icon-plus" href="javascript:handleUserInterfaceEvent({
-            origin: 'metaInformationsCommandBar.AddButton',
-            parameters: {
-            }
-          })"></a>
+          <a style="position:absolute; right:0px" class="ui-icon ui-icon-wrench" href="javascript:sciflow.metaInformations.handleUserInterfaceEvent.change()"></a>
+          <a style="position:absolute; right:16px" class="ui-icon ui-icon-minus" href="javascript:sciflow.metaInformations.handleUserInterfaceEvent.delete()"></a>
+          <a style="position:absolute; right:32px" class="ui-icon ui-icon-plus" href="javascript:sciflow.metaInformations.handleUserInterfaceEvent.add()"></a>
         </div>
         <div style="overflow:auto; position:absolute; left:10px; right:10px; top:32px; bottom:40px;" class="ui-widget-content">
           <ol id="metaInformationsList" style="border:0px; ">
