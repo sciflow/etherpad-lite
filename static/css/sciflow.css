@@ -8,3 +8,14 @@
   margin-top: 5px;
   margin-bottom: 5px;
 }
+
+#templateSelector-button {
+  font-size: 80%;
+  position: absolute;
+  right: 0px;
+  bottom: 0px;
+}
+
+#templateSelector-menu {
+  font-size: 90%;
+}

@@ -44,6 +44,12 @@ sciflow.isEmptyJQueryResult = function(value)
     return false;
 }
 
+sciflow.areArraysEqual = function(array1, array2)
+{
+  //thanks to Tim James (http://stackoverflow.com/questions/3115982/how-to-check-javascript-array-equals)
+  return !(array1 < array2 ||  array2 < array1);
+}
+
 sciflow.getSelectedElementsFromWidget = function(widget)
 {
   if(sciflow.isJQueryObject(widget) === false)
@@ -376,7 +382,10 @@ sciflow.ui.dialogs.deletionConfirmationDialogTemplate = $('\
 //updates the widget and the datastore
 sciflow.addElementToWidget = function(widget, elementData, elementId, listItemHtmlGenerator)
 {
-  widget.find('ol, ul').append(listItemHtmlGenerator(elementData, elementId, 20));
+  var listItem = listItemHtmlGenerator(elementData, elementId, 20);
+
+  if(typeof(listItem) === 'string')
+    widget.find('ol, ul').append(listItem);
 }
 
 sciflow.deleteElementFromWidget = function(widget, elementId)
@@ -392,6 +401,21 @@ sciflow.initializeWidgetFromDatastore = function(datastoreId, widget, listItemHt
   {
     if(typeof(listOfElements) === 'object')
     {
+      
+      //in order to improve to performance we check, if there are no adds/delets since the last call
+      if(typeof(sciflow.metaInformations.listOfElements) === 'undefined')
+        $.extend(sciflow.metaInformations, { listOfElements: {} });
+
+      if(sciflow.areArraysEqual(sciflow.metaInformations.listOfElements, listOfElements))
+      {
+        //TODO: comment this out to prevent loading all elements everytime the widget is updated
+        //console.log('No widget update needed.');
+        return;
+      }
+     
+      //cache the listOfElements result to check for changes next time
+      sciflow.metaInformations.listOfElements = listOfElements.slice();
+
       async.forEach(listOfElements, function(elementId, callback)
       {
         sciflow.getElementFromDatastore(datastoreId, elementId, function(elementData)
@@ -401,11 +425,22 @@ sciflow.initializeWidgetFromDatastore = function(datastoreId, widget, listItemHt
         });
       },
       function(err)
-      {
-        listOfElements.forEach(function(item)
+      { 
+        
+        if(err)
         {
-          sciflow.addElementToWidget(sciflow.metaInformations.widget, item['elementData'], item['elementId'], sciflow.metaInformations.listItemHtmlGenerator);
-        });
+          schflow.log(err[0], err[1]);
+        }
+        else
+        {
+          //clear the widget during initialization (need to incorporate changes from other users)
+          widget.find('li').remove();
+
+          listOfElements.forEach(function(item)
+          {
+            sciflow.addElementToWidget(sciflow.metaInformations.widget, item['elementData'], item['elementId'], sciflow.metaInformations.listItemHtmlGenerator);
+          });
+        }
       });
     }
     else
@@ -698,6 +733,26 @@ sciflow.ui.dialogs.deleteMetaInformation = $(sciflow.ui.dialogs.deletionConfirma
 sciflow.metaInformations.initializeWidgetFromDatastore = function()
 {
   sciflow.initializeWidgetFromDatastore('metaInformations', sciflow.metaInformations.widget, sciflow.metaInformations.listItemHtmlGenerator);
+
+  //the template selector needs some special handling
+  sciflow.getElementFromDatastore('metaInformations', 'latex-template', function(result)
+  {
+    //if there is no template setting yet, set it to the default 'ieeetran'
+    if(typeof(result) === 'undefined')
+    {
+      sciflow.addElementToDatastore('metaInformations', { type: 'latex-template', templateId: templateId }, 'latex-template');
+    }
+    else
+    {
+      switch(result.templateId)
+      {
+        //the val thing is needed for the first page load, where the selectmenu would maybe not exist
+        case 'ieeetran': $('#templateSelector').val('IEEEtran').selectmenu('value','IEEEtran'); break;
+        case 'springer-llncs': $('#templateSelector').val('Springer (llncs)').selectmenu('value','Springer (llncs)'); break;
+        case 'springer-svmult': $('#templateSelector').val('Springer (svmult)').selectmenu('value', 'Springer (svmult)'); break;
+      }
+    }
+  });
 }
 
 //creates the html of an li element of the meta informations list (part of the meta informations widget)
@@ -713,14 +768,13 @@ sciflow.metaInformations.listItemHtmlGenerator = function(elementData, elementId
     case "Keywords": elementDescriptor = 'Keywords (' + sciflow.getFixedSizeString(elementData.keywords, elementDescriptorMaxLength) + ')'; break;
     case "Categories": elementDescriptor = 'Categories (' + sciflow.getFixedSizeString(elementData.categories, elementDescriptorMaxLength) + ')'; break;
     case "General Terms": elementDescriptor = 'General Terms (' + sciflow.getFixedSizeString(elementData.generalTerms, elementDescriptorMaxLength) + ')'; break;
+    case "latex-template": return;
     default: elementDescriptor = 'Unknown type of metaInformation'; break;
   }
 
   //if the element was successfully added, update the widget
   return('<li id="' + elementId + '" style="border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width: 0px; border-style: initial; border-color: initial; " class="ui-widget-content ui-selectee">' + elementDescriptor + '</li>');
 }
-
-sciflow.initializeAllWidgetsFromDatastore();
 
 //
 // old code
@@ -773,47 +827,21 @@ sciflow.initializeAllWidgetsFromDatastore();
   $(function() {
     $('#templateSelector').selectmenu({
       width: '120px',
-      change: function(e, selectmenuData)
+      select: function(e, selectmenuData)
       {
         var templateId;
-        var padId = location.href.match(/p\/([0-9a-zA-Z_]+)$/)[1];
 
         switch(selectmenuData.value)
         {
           case "IEEEtran" : templateId = 'ieeetran'; break;
           case "Springer (llncs)" : templateId = 'springer-llncs'; break;
           case "Springer (svmult)" : templateId = 'springer-svmult'; break;
+          default: return;
         }
 
-        if(typeof(templateId) !== 'undefined')
-        {
-          $.ajax({
-            url : '/api/2/pads/' + location.href.match(/p\/([0-9a-zA-Z_]+)$/)[1] + '/datastores/metaInformations/latex-template',
-            type : 'PUT',
-            dataType: 'json',
-            async : false,
-            processData: false,
-            contentType : 'application/json',
-            data : JSON.stringify({
-              metaInfoType: 'latex-template',
-              templateId: templateId
-            })
-          });
-        }
+        sciflow.addElementToDatastore('metaInformations', { type: 'latex-template', templateId: templateId }, 'latex-template');
       }
-      //change:  selectmenuChangeHandler
     });
-
-
-
-    //somekind of a hack to get the menu where and how
-    $('#templateSelector' + '-button').css({
-      'font-size': '80%',
-      'position' : 'absolute',
-      'right' : '0px',
-      'bottom' : '0px'
-    });
-    $('#templateSelector' + '-menu').css('font-size', '90%');
   });
 
   //create the selectable metaInformations list inside the accordion
@@ -848,9 +876,12 @@ sciflow.initializeAllWidgetsFromDatastore();
   });
 
   updateUiWidgets();
+  
+  //new code
+  sciflow.initializeAllWidgetsFromDatastore();
 
   //poll for changes every 5 seconds
-  //window.setInterval("updateUiWidgets()", 5000);
+  window.setInterval(sciflow.initializeAllWidgetsFromDatastore, 3000);
 });
 
 function updateUiWidgets()
