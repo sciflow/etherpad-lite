@@ -1,7 +1,10 @@
 //create global sciflow object which holds references to sciflow functions
 var sciflow = {};
 
-/////////////////////
+$(document).ready(function()
+{
+
+////////////////////
 // Default values  //
 /////////////////////
 
@@ -30,6 +33,17 @@ sciflow.isJQueryObject = function(value)
     return false;
 }
 
+sciflow.isEmptyJQueryResult = function(value)
+{
+  if(typeof(value) !== 'undefined')
+  {
+    if(sciflow.isJQueryObject(value))
+      return (value.size() === 0);
+  }
+  else
+    return false;
+}
+
 sciflow.getSelectedElementsFromWidget = function(widget)
 {
   if(sciflow.isJQueryObject(widget) === false)
@@ -43,6 +57,12 @@ sciflow.getFixedSizeString = function(givenString, requestedLength)
 {
   if(typeof(givenString) === 'string' && typeof(requestedLength) === 'number')
     return (givenString.length > requestedLength) ? givenString.substr(0, requestedLength - 4) + ' ...' : givenString;
+}
+
+//logging (when there is time, replace by log4js
+sciflow.log = function(loglevel, message)
+{
+  console.log('[' + loglevel + '] ' + message);
 }
 
 //////////////////////////
@@ -67,6 +87,10 @@ sciflow.addElementToDatastore = function(datastoreId, elementData, elementId, ca
     if(typeof(callback) === 'function')
       callback(ajaxResult);
   }
+
+  //normalize elementId handling for null/undefined
+  if(elementId === null)
+    elementId = undefined;
 
   //if the caller passes a callback but no elementId
   if(typeof(callback) === 'undefined' && typeof(elementId) === 'function')
@@ -125,6 +149,10 @@ sciflow.getElementFromDatastore = function(datastoreId, elementId, callback)
       callback(ajaxResult);
   }
 
+  //normalize elementId handling for null/undefined
+  if(elementId === null)
+    elementId = undefined;
+
   //if the caller passes a callback but no elementId
   if(typeof(callback) === 'undefined' && typeof(elementId) === 'function')
     callback = elementId;
@@ -167,7 +195,7 @@ sciflow.getListOfDatastoreElements = function(datastoreId, callback)
   return sciflow.getElementFromDatastore(datastoreId, callback);
 }
 
-//remove meta information in datastore (elementId and callback are optional)
+//remove element from datastore (elementId and callback are optional)
 sciflow.deleteElementFromDatastore = function(datastoreId, elementId, callback)
 {
   var ajaxResult;
@@ -185,6 +213,10 @@ sciflow.deleteElementFromDatastore = function(datastoreId, elementId, callback)
     if(typeof(callback) === 'function')
       callback(ajaxResult);
   }
+
+  //normalize elementId handling for null/undefined
+  if(elementId === null)
+    elementId = undefined;
 
   //if the caller passes a callback but no elementId
   if(typeof(callback) === 'undefined' && typeof(elementId) === 'function')
@@ -222,97 +254,481 @@ sciflow.deleteElementFromDatastore = function(datastoreId, elementId, callback)
     return ajaxResult;
 } 
 
-////////////////////////
-// sciflow components //
-////////////////////////
+//
+// High level datastore access
+//
 
-sciflow.components = {
-  metaInformations : {},
-  bibliography: {},
-  graphics: {}
-};
+//adds an element to the widget and the datastore 
+sciflow.addElement = function(datastoreId, elementData, elementId, widget, listItemHtmlGenerator, callback)
+{
+  //if this is a replacing add (due to a change), we need to update the widget element (not add another one)
+  var isReplacingAdd = (typeof(elementId) === 'string');
+
+  //normalize elementId handling for null/undefined
+  if(elementId === null)
+    elementId = undefined;
+
+  async.series([
+    //add the given element to the datastore
+    function(callback)
+    {
+      sciflow.addElementToDatastore(datastoreId, elementData, elementId, function(requestResult)
+      {
+        if(typeof(requestResult) === 'undefined')
+          callback(['error', 'Non valid datastore request result in sciflow.addElement']);
+        else
+        {
+          //per definition is the result of a successfull datastore add without a given elementId a new elementId
+          if(typeof(elementId) === 'undefined')
+            elementId = requestResult;
+
+          callback(null);
+        }
+      });
+    },
+    //add element to the widget (only if element was successfully added to the datastore)
+    function(callback)
+    {
+      //if we replace a existing element, delete that element prior to putting the new one in
+      if(isReplacingAdd)
+        sciflow.deleteElementFromWidget(widget, elementId);
+
+      sciflow.addElementToWidget(widget, elementData, elementId, listItemHtmlGenerator);
+      callback(null);
+    }
+  ],function(err, results)
+  {
+    if(err)
+      sciflow.log(err[0], err[1]);
+
+    if(typeof(callback) === 'function')
+      callback();
+  });
+}
+
+//wrapper to sciflow.deleteElement to allow multiple elements to be deleted at once
+sciflow.deleteElements = function(datastoreId, listOfElements, widget, callback)
+{
+  async.forEach(listOfElements, function(elementId, callback)
+  {
+    sciflow.deleteElement(datastoreId, elementId, widget, function()
+    {
+      callback(null);
+    });
+  }, function(err)
+  {
+    callback();
+  });
+}
+
+//delets an element identified by its elementId from the datastore and the widget
+sciflow.deleteElement = function(datastoreId, elementId, widget, callback)
+{
+  async.series([
+    //remove the element from the datastore
+    function(callback)
+    {
+      sciflow.deleteElementFromDatastore(datastoreId, elementId, function()
+      {
+        callback(null);
+      });
+    },
+    //remove the element from the widget
+    function(callback)
+    {
+      sciflow.deleteElementFromWidget(widget, elementId);
+      callback(null);
+    }
+  ], function(err)
+  {
+    callback();
+  });
+}
+
+////////////////
+// General UI //
+////////////////
+
+$.extend(sciflow, { ui : {} } );
+$.extend(sciflow.ui, { dialogs : {} } );
+$.extend(sciflow.ui.dialogs, { dialogDefaults : {} } );
+
+$.extend(sciflow.ui.dialogs.dialogDefaults, {
+  autoOpen: false,
+  modal: true,
+  width: 400,
+  buttons: {
+    Cancel: function()
+    {
+      $(this).dialog('close');
+    }
+  }
+});
+
+sciflow.ui.dialogs.deletionConfirmationDialogTemplate = $('\
+  <div>\
+    <p>\
+      Do you realy want to remove this element ?\
+    </p>\
+  </div>\
+');
+
+//updates the widget and the datastore
+sciflow.addElementToWidget = function(widget, elementData, elementId, listItemHtmlGenerator)
+{
+  widget.find('ol, ul').append(listItemHtmlGenerator(elementData, elementId, 20));
+}
+
+sciflow.deleteElementFromWidget = function(widget, elementId)
+{
+  widget.find('#' + elementId.replace(/\./, '\\.')).remove();  
+}
+
+//gets a list of elements for the given datastore and initializes the widget with that list
+sciflow.initializeWidgetFromDatastore = function(datastoreId, widget, listItemHtmlGenerator)
+{
+  //retrieve the list of elements for that datastore
+  sciflow.getListOfDatastoreElements(datastoreId, function(listOfElements)
+  {
+    if(typeof(listOfElements) === 'object')
+    {
+      async.forEach(listOfElements, function(elementId, callback)
+      {
+        sciflow.getElementFromDatastore(datastoreId, elementId, function(elementData)
+        {
+          listOfElements[listOfElements.indexOf(elementId)] = { elementId: elementId, elementData: elementData };
+          callback(null);
+        });
+      },
+      function(err)
+      {
+        listOfElements.forEach(function(item)
+        {
+          sciflow.addElementToWidget(sciflow.metaInformations.widget, item['elementData'], item['elementId'], sciflow.metaInformations.listItemHtmlGenerator);
+        });
+      });
+    }
+    else
+    {
+      sciflow.log('warn', 'There is no ' + datastoreId + ' datastore for that pad.');
+    }
+  });
+}
+
+sciflow.initializeAllWidgetsFromDatastore = function()
+{
+  sciflow.metaInformations.initializeWidgetFromDatastore();
+}
+
+sciflow.serializeDialogContent = function(dialog, clearFieldsAfterSerialization)
+{
+  if(typeof(clearFieldsAfterSerialization) !== 'boolean')
+    clearFieldsAfterSerialization = true;
+ 
+  var dialogContent = {};
+
+  dialog.find('fieldset').find('input, textarea').parent().add(dialog.find('fieldset').find('select').parent()).each(function(index, element)
+  {
+    //we only want to serialize visiable elements
+    if($(element).css('display') !== 'none')
+    {
+      //serialize all input, textarea and select fields
+      $(element).find('input, textarea, select').each(function (index, element)
+      {
+        dialogContent[$(element).attr('name')] = $(element).val();
+
+        //clear to dialog fields after serialization (except for selects)
+        if(clearFieldsAfterSerialization)
+          if(! $(element).is('select'))
+             $(element).val('');
+      });
+    }
+  });
+
+  return dialogContent;
+}
+
+sciflow.loadDialogContent = function(dialog, dialogContent)
+{
+  var item;
+
+  for(item in dialogContent)
+  {
+    var dialogElement = dialog.find('[name=' + item + ']').val(dialogContent[item]);
+    
+    if(dialogElement.is('select'))
+      dialogElement.selectmenu('value', dialogContent[item]);
+  }
+
+}
 
 ////////////////////////////////
 // metaInformations component //
 ////////////////////////////////
 
-sciflow.components.metaInformations.widget = $('#sciflow-components-metaInformations-widget');
+//add sciflow.metaInformations
+$.extend(sciflow, { metaInformations: {}});
 
-//updates the widget and the datastore (metaInformationId is optional, if given, is used as elementId by the datastore)
-sciflow.components.metaInformations.addMetaInformation = function(metaInformation, metaInformationId)
-{
-  //for a meta information to make sense it hase to be some kind of object
-  if(typeof(metaInformation) !== 'object')
-    return;
+//
+// ui
+//
 
-  if(typeof(metaInformationId) !== 'string')
-    metaInformationId = undefined;
+//get the main widget
+sciflow.metaInformations.widget = $('#sciflow-metaInformations-widget');
 
-  sciflow.AddElementToDatastore('metaInformations', metaInformation, metaInformationId, function(requestResult)
+//handle ui requests
+sciflow.metaInformations.handleUserInterfaceEvent = {
+  add: function()
   {
-    var listItemHtml = sciflow.components.metaInformations.createListItemHtml(metaInformation, (typeof(metaInformationId) === 'string') ? metaInformationId : requestResult['id'], 20);
-
-    //if the element was successfully added, update the widget
-    sciflow.components.metaInformations.widget.find('ol, ul').append(listItemHtml);
-  });
-}
-
-
-sciflow.initializeWidgetFromDatastore = function(datastoreId, widget, listItemHtmlGenerator)
-{
-  sciflow.getListOfDatastoreElements(datastoreId, function(listOfElements)
+    sciflow.ui.dialogs.addMetaInformation.dialog('open')
+  },
+  change: function(elementId)
   {
-    async.forEach(listOfElements, function(elementId, callback)
+    //if there is no elementId given, take the first selected element in the widget
+    if(typeof(elementId) !== 'string')
+      var elementId = sciflow.metaInformations.widget.find('.ui-selected').first().attr('id');
+
+    //if elementId is still undefined (because there was no element selected) return
+    if(typeof(elementId) !== 'string')
+      return;
+
+    sciflow.getElementFromDatastore('metaInformations', elementId, function(elementData)
     {
-      sciflow.getElementFromDatastore(datastoreId, elementId, function(elementData)
-      {
-        listOfElements[listOfElements.indexOf(elementId)] = { elementId: elementId, elementData: elementData };
-        callback(null);
-      });
-    },
-    function(err)
-    {
-      listOfElements.forEach(function(element)
-      {
-        var listItemHtml = listItemHtmlGenerator(element['elementData'], element['elementId'], 20);
-        widget.find('ol, ul').append(listItemHtml);
-      });
+      //we need to put the elementId into the dialog content in order to know, which element to change later
+      elementData.elementId = elementId;
+      
+      //in order to adapt the dialog to the type of meta info
+      var typeOfMetaInformation = elementData.type.toLowerCase();
+      typeOfMetaInformation = (typeOfMetaInformation === 'general terms') ? 'generalTerms' : typeOfMetaInformation;
+
+      sciflow.loadDialogContent(sciflow.ui.dialogs.changeMetaInformation, elementData);
+
+      sciflow.ui.dialogs.changeMetaInformation.find('#author, #categories, #generalTerms, #keywords, #subtitle, #title').not('#' + typeOfMetaInformation).hide();
+      sciflow.ui.dialogs.changeMetaInformation.find('#' + typeOfMetaInformation).show();
+
+      sciflow.ui.dialogs.changeMetaInformation.dialog('open');
     });
-  });
+  },
+  delete: function()
+  {
+    sciflow.ui.dialogs.deleteMetaInformation.dialog('open');
+  }
 }
 
+//html template for the add/change meta information dialog
+sciflow.ui.dialogs.metaInformationsDialogTemplate = '\
+  <div>\
+    <fieldset>\
+      <div>\
+        <input type="hidden" name="elementId" value="" />\
+      </div>\
+      <div>\
+        <label for="type">Type of meta information</label>\
+        <select name="type">\
+          <option>Author</option>\
+          <option>Categories</option>\
+          <option>General Terms</option>\
+          <option>Keywords</option>\
+          <option>Subtitle</option>\
+          <option>Title</option>\
+        </select>\
+      </div>\
+      <div id="author">\
+        <label for="name">Name</label>\
+        <input type="text" name="name" class="text ui-widget-content ui-corner-all" />\
+        <label for="position">Position</label>\
+        <input type="text" name="position" class="text ui-widget-content ui-corner-all" />\
+        <label for="organization">Organization</label>\
+        <input type="text" name="organization" class="text ui-widget-content ui-corner-all" />\
+        <label for="telephone">Telephone</label>\
+        <input type="text" name="telephone" class="text ui-widget-content ui-corner-all" />\
+        <label for="email">Email</label>\
+        <input type="text" name="email" class="text ui-widget-content ui-corner-all" />\
+        <label for="adress">Adress</label>\
+        <textarea id="adress" name="adress" class="text ui-widget-content ui-corner-all" />\
+      </div>\
+      <div id="categories" style="display: none">\
+        <label for="categories">Categories</label>\
+        <input type="text" name="categories" class="text ui-widget-content ui-corner-all" />\
+      </div>\
+      <div id="generalTerms" style="display: none">\
+        <label for="generalTerms">General Terms</label>\
+        <input type="text" name="generalTerms" class="text ui-widget-content ui-corner-all" />\
+      </div>\
+      <div id="keywords" style="display: none">\
+        <label for="keywords">Keywords</label>\
+        <input type="text" name="keywords" class="text ui-widget-content ui-corner-all" />\
+      </div>\
+      <div id="subtitle" style="display: none">\
+        <label for="subtitle">Subtitle</label>\
+        <input type="text" name="subtitle" class="text ui-widget-content ui-corner-all" />\
+      </div>\
+      <div id="title" style="display: none">\
+        <label for="title">Title</label>\
+        <input type="text" name="title" class="text ui-widget-content ui-corner-all" />\
+      </div>\
+      </fieldset>\
+  </div>\
+';
+
+//create the add meta information dialog
+sciflow.ui.dialogs.addMetaInformation = $(sciflow.ui.dialogs.metaInformationsDialogTemplate).dialog(
+  $.extend(true,
+  {
+    title: 'Add meta information',
+    buttons:
+    {
+      Add: function()
+      {
+        var thisDialog = $(this);
+
+        //dont clear the dialog as long as there is the posibility for a conflicting title, subtitle, etc.
+        var dialogContent = sciflow.serializeDialogContent(thisDialog, false);
+
+        //some elements are only allowed once, so we have to check if such an element is already in the list
+        var typeOfMetaInformation;;
+
+        for(restrictedTypeOfMetaInformation in { Title: 1, Subtitle: 1, Abstract: 1 })
+        {
+          if(dialogContent.type === restrictedTypeOfMetaInformation)
+          {
+            var searchResult = sciflow.metaInformations.widget.find('li:contains(' + typeOfMetaInformation + ')');
+            if(! sciflow.isEmptyJQueryResult(searchResult))
+            {
+              alert('There is already a ' + typeOfMetaInformation.toLowerCase() + '. Please use the modify button or the delete button.');
+              thisDialog.dialog('close');
+              return;
+            }
+          }
+        }
+
+        var dialogContent = sciflow.serializeDialogContent(thisDialog);
+
+        //remove the elementId entry
+        dialogContent.elementId = undefined;
+
+        sciflow.addElement('metaInformations', dialogContent, null, sciflow.metaInformations.widget, sciflow.metaInformations.listItemHtmlGenerator, function()
+        {
+          thisDialog.dialog('close');
+        });
+      },
+    }
+  }, sciflow.ui.dialogs.dialogDefaults)
+);
+
+//create the change meta information dialog
+sciflow.ui.dialogs.changeMetaInformation = $(sciflow.ui.dialogs.metaInformationsDialogTemplate).dialog(
+  $.extend(true,
+  {
+    title: 'Change meta information',
+    buttons:
+    {
+      Change: function()
+      {
+        var thisDialog = $(this);
+
+        //we need to extract the elementId for the "named" add
+        var dialogContent = sciflow.serializeDialogContent(thisDialog);
+        var elementId = dialogContent.elementId;
+
+        //remove the elementId entry
+        dialogContent.elementId = undefined;
+
+        //know use a "named" add (elementId set) to replace the datastore element with that id with the new data
+        sciflow.addElement('metaInformations', dialogContent, elementId, sciflow.metaInformations.widget, sciflow.metaInformations.listItemHtmlGenerator, function()
+        {
+          thisDialog.dialog('close');
+        });
+      },
+    }
+  }, sciflow.ui.dialogs.dialogDefaults)
+);
+
+$.each([sciflow.ui.dialogs.addMetaInformation, sciflow.ui.dialogs.changeMetaInformation], function(index, dialog)
+{
+  dialog.find('select').selectmenu(
+  {
+    width: '150px',
+    select: function(e, obj)
+    {
+      //some converting to match the select values and the div names
+      obj.value = obj.value.toLowerCase();
+      obj.value = (obj.value === 'general terms') ? 'generalTerms' : obj.value;
+
+      $(this).parent().parent().find('#author, #categories, #generalTerms, #keywords, #subtitle, #title').not('#' + obj.value).hide();
+      $(this).parent().parent().find('#' + obj.value).show();
+    }
+  });
+
+});
+
+//create the deleteMetaInformation dialog
+sciflow.ui.dialogs.deleteMetaInformation = $(sciflow.ui.dialogs.deletionConfirmationDialogTemplate).dialog(
+  $.extend(true,
+  {
+    title: 'Delete meta information',
+    buttons:
+    {
+      Delete: function()
+      {
+        var thisDialog = $(this);
+
+        //get the selected items
+        var listOfElements = [];
+        
+        sciflow.metaInformations.widget.find('.ui-selected').each(function(index, element)
+        {
+          listOfElements[index] = $(element).attr('id');
+        });
+
+        sciflow.deleteElements('metaInformations', listOfElements, sciflow.metaInformations.widget, function()
+        {
+          thisDialog.dialog('close');
+        });
+      },
+    }
+  }, sciflow.ui.dialogs.dialogDefaults)
+);
+
+//
+// component logic
+//
+
+//shortcut to initialize the meta informations widget
+sciflow.metaInformations.initializeWidgetFromDatastore = function()
+{
+  sciflow.initializeWidgetFromDatastore('metaInformations', sciflow.metaInformations.widget, sciflow.metaInformations.listItemHtmlGenerator);
+}
 
 //creates the html of an li element of the meta informations list (part of the meta informations widget)
-sciflow.components.metaInformations.listItemHtmlGenerator = function(metaInformation, metaInformationId, elementDescriptorMaxLength)
+sciflow.metaInformations.listItemHtmlGenerator = function(elementData, elementId, elementDescriptorMaxLength)
 {
   var elementDescriptor;
 
-  switch(metaInformation.type)
+  switch(elementData.type)
   {
-    case "author": elementDescriptor = 'Author (' + sciflow.getFixedSizeString(metaInformation.name, elementDescriptorMaxLength) + ')'; break;
-    case "title": elementDescriptor = 'Title (' + sciflow.getFixedSizeString(metaInformation.title, elementDescriptorMaxLength) + ')'; break;
-    case "subtitle": elementDescriptor = 'Subtitle (' + sciflow.getFixedSizeString(metaInformation.subtitle, elementDescriptorMaxLength) + ')'; break;
-    case "keywords": elementDescriptor = 'Keywords (' + sciflow.getFixedSizeString(metaInformation.keywords, elementDescriptorMaxLength) + ')'; break;
+    case "Author": elementDescriptor = 'Author (' + sciflow.getFixedSizeString(elementData.name, elementDescriptorMaxLength) + ')'; break;
+    case "Title": elementDescriptor = 'Title (' + sciflow.getFixedSizeString(elementData.title, elementDescriptorMaxLength) + ')'; break;
+    case "Subtitle": elementDescriptor = 'Subtitle (' + sciflow.getFixedSizeString(elementData.subtitle, elementDescriptorMaxLength) + ')'; break;
+    case "Keywords": elementDescriptor = 'Keywords (' + sciflow.getFixedSizeString(elementData.keywords, elementDescriptorMaxLength) + ')'; break;
+    case "Categories": elementDescriptor = 'Categories (' + sciflow.getFixedSizeString(elementData.categories, elementDescriptorMaxLength) + ')'; break;
+    case "General Terms": elementDescriptor = 'General Terms (' + sciflow.getFixedSizeString(elementData.generalTerms, elementDescriptorMaxLength) + ')'; break;
     default: elementDescriptor = 'Unknown type of metaInformation'; break;
   }
 
   //if the element was successfully added, update the widget
-  return('<li id="' + metaInformationId + '" style="border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width: 0px; border-style: initial; border-color: initial; " class="ui-widget-content ui-selectee">' + elementDescriptor + '</li>');
+  return('<li id="' + elementId + '" style="border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width: 0px; border-style: initial; border-color: initial; " class="ui-widget-content ui-selectee">' + elementDescriptor + '</li>');
 }
 
+sciflow.initializeAllWidgetsFromDatastore();
 
-sciflow.components.metaInformations.showAddDialog = function()
-{
-
-}
+//
+// old code
+//
 
 //call updateUiWidgets the first time when the document is ready (will be call by setInterval later on)
-$(document).ready(function()
-{
-  //new code
-  sciflow.components.metaInformations.widget = $('#sciflow-components-metaInformations-widget');
 
-  //create the heading selector select menu
+//create the heading selector select menu
   $(function() {
     $('#headingSelector').selectmenu({
       width: '150px',
