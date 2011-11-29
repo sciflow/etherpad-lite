@@ -401,26 +401,29 @@ sciflow.initializeWidgetFromDatastore = function(datastoreId, widget, listItemHt
   {
     if(typeof(listOfElements) === 'object')
     {
-      
       //in order to improve to performance we check, if there are no adds/delets since the last call
-      if(typeof(sciflow.metaInformations.listOfElements) === 'undefined')
-        $.extend(sciflow.metaInformations, { listOfElements: {} });
-
-      if(sciflow.areArraysEqual(sciflow.metaInformations.listOfElements, listOfElements))
+      sciflow.datastores = (typeof(sciflow.datastores) === 'undefined') ? {} : sciflow.datastores;
+      sciflow.datastores[datastoreId] = (typeof(sciflow.datastores[datastoreId])  === 'undefined') ? {} : sciflow.datastores[datastoreId];
+      sciflow.datastores[datastoreId]['listOfElements'] = (typeof(sciflow.datastores[datastoreId]['listOfElements']) === 'undefined') ? {} : sciflow.datastores[datastoreId]['listOfElements'];
+    
+      if(sciflow.areArraysEqual(sciflow.datastores[datastoreId]['listOfElements'], listOfElements))
       {
         //TODO: comment this out to prevent loading all elements everytime the widget is updated
         //console.log('No widget update needed.');
-        return;
+        //return;
       }
      
-      //cache the listOfElements result to check for changes next time
-      sciflow.metaInformations.listOfElements = listOfElements.slice();
+      //cache the listOfElements result to check for changes next time (use slice to avoid reference to array)
+      sciflow.datastores[datastoreId]['listOfElements'] = listOfElements.slice();
+
+      var elements = {};
 
       async.forEach(listOfElements, function(elementId, callback)
       {
         sciflow.getElementFromDatastore(datastoreId, elementId, function(elementData)
         {
-          listOfElements[listOfElements.indexOf(elementId)] = { elementId: elementId, elementData: elementData };
+          elements[elementId] = elementData;
+          //listOfElements[listOfElements.indexOf(elementId)] = { elementId: elementId, elementData: elementData };
           callback(null);
         });
       },
@@ -436,10 +439,14 @@ sciflow.initializeWidgetFromDatastore = function(datastoreId, widget, listItemHt
           //clear the widget during initialization (need to incorporate changes from other users)
           widget.find('li').remove();
 
-          listOfElements.forEach(function(item)
+          var elementId;
+
+          for(elementId in elements)
           {
-            sciflow.addElementToWidget(sciflow.metaInformations.widget, item['elementData'], item['elementId'], sciflow.metaInformations.listItemHtmlGenerator);
-          });
+            sciflow.addElementToWidget(widget, elements[elementId], elementId, listItemHtmlGenerator);
+          }
+
+          sciflow.datastores[datastoreId]['elements'] = elements;
         }
       });
     }
@@ -453,6 +460,7 @@ sciflow.initializeWidgetFromDatastore = function(datastoreId, widget, listItemHt
 sciflow.initializeAllWidgetsFromDatastore = function()
 {
   sciflow.metaInformations.initializeWidgetFromDatastore();
+  sciflow.bibliography.initializeWidgetFromDatastore();
 }
 
 sciflow.serializeDialogContent = function(dialog, clearFieldsAfterSerialization)
@@ -462,7 +470,7 @@ sciflow.serializeDialogContent = function(dialog, clearFieldsAfterSerialization)
  
   var dialogContent = {};
 
-  dialog.find('fieldset').find('input, textarea').parent().add(dialog.find('fieldset').find('select').parent()).each(function(index, element)
+  dialog.find('fieldset div input, textarea, select').parent('div').each(function(index, element)
   {
     //we only want to serialize visiable elements
     if($(element).css('display') !== 'none')
@@ -776,11 +784,465 @@ sciflow.metaInformations.listItemHtmlGenerator = function(elementData, elementId
   return('<li id="' + elementId + '" style="border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width: 0px; border-style: initial; border-color: initial; " class="ui-widget-content ui-selectee">' + elementDescriptor + '</li>');
 }
 
+////////////////////////////
+// bibliography component //
+////////////////////////////
+
+$.extend(sciflow, { bibliography: {}});
+
+//
+// ui
+//
+
+//get the main widget
+sciflow.bibliography.widget = $('#sciflow-bibliography-widget');
+
+//handle ui requests
+sciflow.bibliography.handleUserInterfaceEvent = {
+  add: function()
+  {
+    sciflow.ui.dialogs.addBibliography.dialog('open')
+  },
+  change: function(elementId)
+  {
+    //if there is no elementId given, take the first selected element in the widget
+    if(typeof(elementId) !== 'string')
+      var elementId = sciflow.bibliography.widget.find('.ui-selected').first().attr('id');
+
+    //if elementId is still undefined (because there was no element selected) return
+    if(typeof(elementId) !== 'string')
+      return;
+
+    sciflow.getElementFromDatastore('bibliography', elementId, function(elementData)
+    {
+      //we need to put the elementId into the dialog content in order to know, which element to change later
+      elementData.elementId = elementId;
+      
+      //in order to adapt the dialog to the type of bibliography 
+      var typeOfBibliography = elementData.type.toLowerCase();
+
+      sciflow.loadDialogContent(sciflow.ui.dialogs.changeBibliography, elementData);
+
+      sciflow.ui.dialogs.changeBibliography.find('#author, #categories, #generalTerms, #keywords, #subtitle, #title').not('#' + typeOfBibliography).hide();
+      sciflow.ui.dialogs.changeBibliography.find('#' + typeOfBibliography).show();
+
+      sciflow.ui.dialogs.changeBibliography.dialog('open');
+    });
+  },
+  delete: function()
+  {
+    sciflow.ui.dialogs.deleteBibliography.dialog('open');
+  },
+  insert: function()
+  {
+    var selectedBibliography = sciflow.bibliography.widget.find('.ui-selected').first(); 
+
+    if(! sciflow.isEmptyJQueryResult(selectedBibliography))
+    {
+      //call the additional markup plugin
+      //plugins.callHook('handleCommand', { name: 'addBibliography', parameters: { id: selectedBibliography.attr('id') } });
+      alert('Not implemented yet');
+    }
+    else
+    {
+      alert('Please select an entry to insert.');
+    }
+  }
+}
+
+//html template for the add/change bibliography dialog
+sciflow.ui.dialogs.bibliographyDialogTemplate = '\
+  <div>\
+    <fieldset>\
+      <div>\
+        <input type="hidden" name="elementId" value="" />\
+      </div>\
+      <div>\
+        <label for="type">Entry type</label>\
+        <select name="type" id="entryType">\
+          <option>Article</option>\
+          <option>Book</option>\
+          <option>Booklet</option>\
+          <option>Conference</option>\
+          <option>Inbook</option>\
+          <option>Incollection</option>\
+          <option>Manual</option>\
+          <option>Master thesis</option>\
+          <option>Misc</option>\
+          <option>Phd thesis</option>\
+          <option>Proceedings</option>\
+          <option>Techreport</option>\
+          <option>Unpublished</option>\
+        </select>\
+      </div>\
+      <div>\
+        <label for="title">Title</label>\
+        <input type="text" name="title" class="text ui-widget-content ui-corner-all" />\
+      </div>\
+      <div>\
+        <label for="authors">Authors</label>\
+        <input type="text" name="authors" class="text ui-widget-content ui-corner-all" />\
+      </div>\
+      <div id="url">\
+        <label for="url">Url</label>\
+        <input type="text" name="url" class="text ui-widget-content ui-corner-all" />\
+      </div>\
+      <div id="year">\
+        <label for="year">Year</label>\
+        <input type="text" name="year" class="text ui-widget-content ui-corner-all" />\
+      </div>\
+      <div id="month">\
+        <label for="month">Month</label>\
+        <input type="text" name="month" class="text ui-widget-content ui-corner-all" />\
+      </div>\
+      <div id="publisher">\
+        <label for="publisher">Publisher</label>\
+        <input type="text" name="publisher" class="text ui-widget-content ui-corner-all" />\
+      </div>\
+      <label for="journal">Journal</label>\
+      <input type="text" name="journal" class="text ui-widget-content ui-corner-all" />\
+    </fieldset>\
+  </div>\
+';
+
+//create the add bibliography dialog
+sciflow.ui.dialogs.addBibliography = $(sciflow.ui.dialogs.bibliographyDialogTemplate).dialog(
+  $.extend(true,
+  {
+    title: 'Add bibliography',
+    buttons:
+    {
+      Add: function()
+      {
+        var thisDialog = $(this);
+
+        var dialogContent = sciflow.serializeDialogContent(thisDialog);
+
+        //remove the elementId entry
+        dialogContent.elementId = undefined;
+
+        sciflow.addElement('bibliography', dialogContent, null, sciflow.bibliography.widget, sciflow.bibliography.listItemHtmlGenerator, function()
+        {
+          thisDialog.dialog('close');
+        });
+      },
+    }
+  }, sciflow.ui.dialogs.dialogDefaults)
+);
+
+//create the change bibliography dialog
+sciflow.ui.dialogs.changeBibliography = $(sciflow.ui.dialogs.bibliographyDialogTemplate).dialog(
+  $.extend(true,
+  {
+    title: 'Change bibliography',
+    buttons:
+    {
+      Change: function()
+      {
+        var thisDialog = $(this);
+
+        //we need to extract the elementId for the "named" add
+        var dialogContent = sciflow.serializeDialogContent(thisDialog);
+        var elementId = dialogContent.elementId;
+
+        //remove the elementId entry
+        dialogContent.elementId = undefined;
+
+        //know use a "named" add (elementId set) to replace the datastore element with that id with the new data
+        sciflow.addElement('bibliography', dialogContent, elementId, sciflow.bibliography.widget, sciflow.bibliography.listItemHtmlGenerator, function()
+        {
+          thisDialog.dialog('close');
+        });
+      },
+    }
+  }, sciflow.ui.dialogs.dialogDefaults)
+);
+
+$.each([sciflow.ui.dialogs.addBibliography, sciflow.ui.dialogs.changeBibliography], function(index, dialog)
+{
+  dialog.find('select').selectmenu(
+  {
+    width: '150px',
+    select: function(e, obj)
+    {
+      //some converting to match the select values and the div names
+      obj.value = obj.value.toLowerCase();
+      obj.value = (obj.value === 'general terms') ? 'generalTerms' : obj.value;
+
+      $(this).parent().parent().find('#author, #categories, #generalTerms, #keywords, #subtitle, #title').not('#' + obj.value).hide();
+      $(this).parent().parent().find('#' + obj.value).show();
+    }
+  });
+
+});
+
+//create the deleteBibliography dialog
+sciflow.ui.dialogs.deleteBibliography = $(sciflow.ui.dialogs.deletionConfirmationDialogTemplate).dialog(
+  $.extend(true,
+  {
+    title: 'Delete bibliography',
+    buttons:
+    {
+      Delete: function()
+      {
+        var thisDialog = $(this);
+
+        //get the selected items
+        var listOfElements = [];
+        
+        sciflow.bibliography.widget.find('.ui-selected').each(function(index, element)
+        {
+          listOfElements[index] = $(element).attr('id');
+        });
+
+        sciflow.deleteElements('bibliography', listOfElements, sciflow.bibliography.widget, function()
+        {
+          thisDialog.dialog('close');
+        });
+      },
+    }
+  }, sciflow.ui.dialogs.dialogDefaults)
+);
+
+//
+// component logic
+//
+
+//shortcut to initialize the bibliography widget
+sciflow.bibliography.initializeWidgetFromDatastore = function()
+{
+  sciflow.initializeWidgetFromDatastore('bibliography', sciflow.bibliography.widget, sciflow.bibliography.listItemHtmlGenerator);
+}
+
+//creates the html of an li element of the bibliography list
+sciflow.bibliography.listItemHtmlGenerator = function(elementData, elementId, elementDescriptorMaxLength)
+{
+  var elementDescriptor;
+
+  switch(elementData.type)
+  {
+    case "Article": elementDescriptor = sciflow.getFixedSizeString(elementData.title, elementDescriptorMaxLength) + ' (Article)'; break;
+    case "Book": elementDescriptor = sciflow.getFixedSizeString(elementData.title, elementDescriptorMaxLength) + ' (Book)'; break;
+    case "Booklet": elementDescriptor = sciflow.getFixedSizeString(elementData.title, elementDescriptorMaxLength) + ' (Booklet)'; break;
+    case "Conference": elementDescriptor = sciflow.getFixedSizeString(elementData.title, elementDescriptorMaxLength) + ' (Conference)'; break;
+    case "Inbook": elementDescriptor = sciflow.getFixedSizeString(elementData.title, elementDescriptorMaxLength) + ' (Inbook)'; break;
+    case "Incolletion": elementDescriptor = sciflow.getFixedSizeString(elementData.title, elementDescriptorMaxLength) + ' (Incollection)'; break;
+    case "Manual": elementDescriptor = sciflow.getFixedSizeString(elementData.title, elementDescriptorMaxLength) + ' (Manual)'; break;
+    case "Master thesis": elementDescriptor = sciflow.getFixedSizeString(elementData.title, elementDescriptorMaxLength) + ' (Master thesis)'; break;
+    case "Misc": elementDescriptor = sciflow.getFixedSizeString(elementData.title, elementDescriptorMaxLength) + ' (Misc)'; break;
+    case "Phd thesis": elementDescriptor = sciflow.getFixedSizeString(elementData.title, elementDescriptorMaxLength) + ' (Phd thesis)'; break;
+    case "Proceedings": elementDescriptor = sciflow.getFixedSizeString(elementData.title, elementDescriptorMaxLength) + ' (Proceedings)'; break;
+    case "Techreport": elementDescriptor = sciflow.getFixedSizeString(elementData.title, elementDescriptorMaxLength) + ' (Techreport)'; break;
+    case "Unpublished": elementDescriptor = sciflow.getFixedSizeString(elementData.title, elementDescriptorMaxLength) + ' (Unpublished)'; break;
+    default: elementDescriptor = 'Unknown type of bibliography'; break;
+  }
+
+  //if the element was successfully added, update the widget
+  return('<li id="' + elementId + '" style="border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width: 0px; border-style: initial; border-color: initial; " class="ui-widget-content ui-selectee">' + elementDescriptor + '</li>');
+}
+
+//
+// hook functions of the etherpad plugin system
+//
+
+sciflow.hookFunctions = {};
+
+
+sciflow.hookFunctions.toggleHeading = function(headingType)
+{
+  //parameter of type string specifying the heading
+
+  //supported headings are heading1-6 and normalText
+
+  padeditor.ace.callWithAce(function (ace) {
+    rep = ace.ace_getRep();
+
+    // Setting a heading is something you probably want to do for the whole line.
+    // To accomplish this, we manipulate the rep.selStart and rep.selEnd before
+    // calling setAttributeOnSelection and toggleAttributeOnSelection to fit the
+    // whole line. After calling this functions, we restore the original values.
+    var originalSelStart = [rep.selStart[0], rep.selStart[1]];
+    var originalSelEnd = [rep.selEnd[0], rep.selEnd[1]];
+
+    rep.selStart[0] = rep.selStart[0];
+    rep.selStart[1] = 0;
+
+    rep.selEnd[0] = rep.selEnd[0];
+    rep.selEnd[1] = rep.lines.atIndex(rep.selEnd[0]).width - 1;  // here's the magic
+
+    // When we set a selection to heading level x, we must take care of
+    // the case, that this selection might allready be a heading of either
+    // level x or some other level y. So we simply set all heading attributes
+    // of the current selection to '', thus deleting all heading formats so far
+    ace.ace_setAttributeOnSelection('sciflow-heading1','');
+    ace.ace_setAttributeOnSelection('sciflow-heading2','');
+    ace.ace_setAttributeOnSelection('sciflow-heading3','');
+    ace.ace_setAttributeOnSelection('sciflow-heading4','');
+    ace.ace_setAttributeOnSelection('sciflow-heading5','');
+    ace.ace_setAttributeOnSelection('sciflow-heading6','');
+
+    if(headingType !== 'normalText') ace.ace_toggleAttributeOnSelection('sciflow-' + headingType);
+
+    // Restore the original rep.selStart and rep.selEnd values
+    rep.selStart[0] = originalSelStart[0];
+    rep.selStart[1] = originalSelStart[1];
+    rep.selEnd[0] = originalSelEnd[0];
+    rep.selEnd[1] = originalSelEnd[1];
+  }, "headings", true);
+}
+
+sciflow.hookFunctions.toggleGraphic = function(elementId)
+{
+  // replace the current selection with a space character
+  padeditor.ace.callWithAce(function (ace)
+  {
+    var rep = ace.ace_getRep();
+   
+    ace.ace_replaceRange(rep.selStart, rep.selEnd, ' ');
+  });
+
+  // After doing the replace, the current selection has changed. There is no
+  // selection anymore, but the selStart and selEnd point to the same location
+  // which is right after the last replaced character. In order to get the
+  // inserted space, we have to go 1 character back from that position.
+  padeditor.ace.callWithAce(function (ace)
+  {
+    var rep = ace.ace_getRep();
+
+    // After doing the replace, the current selection has changed. There is no
+    // selection anymore, but the selStart and selEnd point to the same location
+    // which is right after the last replaced character. In order to get the
+    // inserted space, we have to go 1 character back from that position.
+    if(rep.selStart[1] > -1)
+    {
+      rep.selStart[1]--;
+    }
+    else
+    {
+      return; //this should never happen
+    }
+
+    ace.ace_toggleAttributeOnSelection('sciflow-graphic:' + elementId);
+
+    rep.selStart[1]++;
+
+  },'additional-markup');  //till now I dont understand the semantics of etherpads callstack mechanism, but it has to be at *this* point
+}
+
+sciflow.hookFunctions.toggleCite = function(elementId)
+{
+  // replace the current selection with a space character
+  padeditor.ace.callWithAce(function (ace)
+  {
+    var rep = ace.ace_getRep();
+
+    ace.ace_replaceRange(rep.selStart, rep.selEnd, '[cite]');
+  });
+
+  // After doing the replace, the current selection has changed. There is no
+  // selection anymore, but the selStart and selEnd point to the same location
+  // which is right after the last replaced character. In order to get the
+  // inserted space, we have to go 1 character back from that position.
+  padeditor.ace.callWithAce(function (ace)
+  {
+    var rep = ace.ace_getRep();
+
+    // After doing the replace, the current selection has changed. There is no
+    // selection anymore, but the selStart and selEnd point to the same location
+    // which is right after the last replaced character. In order to get the
+    // inserted space, we have to go 1 character back from that position.
+    if(rep.selStart[1] > -1)
+    {
+      rep.selStart[1] -= 6;
+    }
+    else
+    {
+      return; //this should never happen
+    }
+
+    ace.ace_toggleAttributeOnSelection('sciflow-cite:' + elementId);
+
+    rep.selStart[1] +=6;
+
+  },'additional-markup');  //till now I dont understand the semantics of etherpads callstack mechanism, but it has to be at *this* point
+}
+
+//aceAttribsToClasses
+sciflow.hookFunctions.aceAttribsToClasses = function(args)
+{
+  //if this is one of our attributes
+  if(args.key.indexOf('sciflow') >= 0)
+    return[ args.key ];
+}
+
+// aceCreateDomLine
+sciflow.hookFunctions.aceCreateDomLine = function(args) {
+
+  var result = {
+    extraOpenTags: '',
+    extraCloseTags: '',
+    cls: ''
+  };
+
+  if(args.cls.indexOf('sciflow') >= 0)
+  {
+    result.cls = args.cls;
+
+    //if this is a heading
+    if(args.cls.indexOf('sciflow-heading') >= 0)
+    {
+      //
+    }
+    else if(args.cls.indexOf('sciflow-graphic') >= 0)
+    {
+      //result.extraOpenTags = '<img title="' + parent.parent.sciflow.datastores['graphics']  elementData.title + '" src="' + elementData.url  + '">';
+      //result.extraCloseTags = '</img>';
+    }
+    else if(args.cls.indexOf('sciflow-cite') >= 0)
+    {
+      var title = parent.parent.sciflow.datastores.bibliography.elements[args.cls.match(/sciflow-cite:(\S+)(?:$| )/)[1]].title;
+
+      result.extraOpenTags = '<span title="' + title + '">';
+      result.extraCloseTags = '</span>';
+    }
+  }
+
+  return result;
+}
+
+//collectContentPre
+sciflow.hookFunctions.collectContentPre = function(args)
+{
+  if(args.cls == 'ace-line')
+    return;
+
+  if(args.cls.indexOf('sciflow') >= 0)
+  {
+    var regExpMatch;
+
+    if(regExpMatch = args.cls.match(/sciflow-(?:heading\d|graphic:\S+|cite:\S+)(?:$| )/))
+      args.cc.doAttrib(args.state, regExpMatch[0]);
+  }
+}
+
+sciflow.hookFunctions.collectContentPost = function(args)
+{
+  var attributesToApply = [];
+}
+
+sciflow.ace_test = function(command)
+{
+  padeditor.ace.callWithAce(function (ace)
+  {
+    var rep = ace.ace_getRep();
+    var foo = 'bar';
+  });
+}
+
+
 //
 // old code
 //
-
-//call updateUiWidgets the first time when the document is ready (will be call by setInterval later on)
 
 //create the heading selector select menu
   $(function() {
@@ -875,13 +1337,15 @@ sciflow.metaInformations.listItemHtmlGenerator = function(elementData, elementId
     });
   });
 
-  updateUiWidgets();
-  
-  //new code
+  //updateUiWidgets();
+ 
+  //this was an hack, because setting the widget properties before DOM ready does not function 
+  //sciflow.metaInformations.widget = $('#sciflow-metaInformations-widget');
+  //sciflow.bibliography.widget = $('#sciflow-bibliography-widget');
   sciflow.initializeAllWidgetsFromDatastore();
 
   //poll for changes every 5 seconds
-  window.setInterval(sciflow.initializeAllWidgetsFromDatastore, 3000);
+  //window.setInterval(sciflow.initializeAllWidgetsFromDatastore, 3000);
 });
 
 function updateUiWidgets()
