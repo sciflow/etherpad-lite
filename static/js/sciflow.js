@@ -9,6 +9,7 @@ $(document).ready(function()
 /////////////////////
 
 sciflow.apiPath = '/api/2';
+//sciflow.innerdocbodySelector = $('#editorcontainer').find('iframe').contents().find('iframe').contents();
 
 //////////////////////
 // helper functions //
@@ -357,6 +358,7 @@ sciflow.deleteElement = function(datastoreId, elementId, widget, callback)
 
 $.extend(sciflow, { ui : {} } );
 $.extend(sciflow.ui, { dialogs : {} } );
+$.extend(sciflow.ui, { contextmenus : {} } );
 $.extend(sciflow.ui.dialogs, { dialogDefaults : {} } );
 
 $.extend(sciflow.ui.dialogs.dialogDefaults, {
@@ -379,10 +381,33 @@ sciflow.ui.dialogs.deletionConfirmationDialogTemplate = $('\
   </div>\
 ');
 
+sciflow.ui.contextmenus.citeContextMenuTemplate = '\
+  <ul id="myMenu" class="contextMenu">\
+    <li class="edit">\
+      <a href="#edit">Edit</a>\
+    </li>\
+    <li class="cut separator">\
+      <a href="#cut">Cut</a>\
+    </li>\
+    <li class="copy">\
+      <a href="#copy">Copy</a>\
+    </li>\
+    <li class="paste">\
+      <a href="#paste">Paste</a>\
+    </li>\
+    <li class="delete">\
+      <a href="#delete">Delete</a>\
+    </li>\
+    <li class="quit separator">\
+      <a href="#quit">Quit</a>\
+    </li>\
+  </ul>\
+';
+
 //updates the widget and the datastore
 sciflow.addElementToWidget = function(widget, elementData, elementId, listItemHtmlGenerator)
 {
-  var listItem = listItemHtmlGenerator(elementData, elementId, 20);
+  var listItem = listItemHtmlGenerator(elementData, elementId, 24);
 
   if(typeof(listItem) === 'string')
     widget.find('ol, ul').append(listItem);
@@ -781,7 +806,7 @@ sciflow.metaInformations.listItemHtmlGenerator = function(elementData, elementId
   }
 
   //if the element was successfully added, update the widget
-  return('<li id="' + elementId + '" style="border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width: 0px; border-style: initial; border-color: initial; " class="ui-widget-content ui-selectee">' + elementDescriptor + '</li>');
+  return('<li id="' + elementId + '" class="ui-widget-content ui-selectee">' + elementDescriptor + '</li>');
 }
 
 ////////////////////////////
@@ -1038,7 +1063,7 @@ sciflow.bibliography.listItemHtmlGenerator = function(elementData, elementId, el
   }
 
   //if the element was successfully added, update the widget
-  return('<li id="' + elementId + '" style="border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width: 0px; border-style: initial; border-color: initial; " class="ui-widget-content ui-selectee">' + elementDescriptor + '</li>');
+  return('<li id="' + elementId + '" title="' + elementData.title + '" class="ui-widget-content ui-selectee">' + elementDescriptor + '</li>');
 }
 
 //
@@ -1200,10 +1225,13 @@ sciflow.hookFunctions.aceCreateDomLine = function(args) {
     }
     else if(args.cls.indexOf('sciflow-cite') >= 0)
     {
-      var title = parent.parent.sciflow.datastores.bibliography.elements[args.cls.match(/sciflow-cite:(\S+)(?:$| )/)[1]].title;
+      var elementId = args.cls.match(/sciflow-cite:(\S+)(?:$| )/)[1];
 
-      result.extraOpenTags = '<span title="' + title + '">';
-      result.extraCloseTags = '</span>';
+      var title = parent.parent.sciflow.datastores.bibliography.elements[elementId].title;
+
+      result.extraOpenTags = '<span title="' + title + '" style="cursor: help;" onclick="parent.parent.sciflow.bibliography.handleUserInterfaceEvent.change(\'' + elementId + '\');">';
+      //result.extraOpenTags = '<span title="' + title + '" onclick="parent.parent.sciflow.bibliography.handleUserInterfaceEvent(\'' + elementId + '\')">';
+      result.extraCloseTags = '</a></span>';
     }
   }
 
@@ -1250,17 +1278,7 @@ sciflow.ace_test = function(command)
       width: '150px',
       select: function(e, selectmenuData)
       {
-        var hookMethodeName = 'handleCommand';
-        var hookMethodeParameters =
-        {
-          name: 'changeHeading',
-          parameters:
-          {
-            headingType: selectmenuData.value
-          }
-        };
-
-        plugins.callHook(hookMethodeName, hookMethodeParameters);
+        sciflow.hookFunctions.toggleHeading(selectmenuData.value);
       }
     });
 
