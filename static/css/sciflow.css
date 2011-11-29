@@ -20,7 +20,15 @@
   font-size: 90%;
 }
 
-.graphic0815 {
-  font-size:300%;      
+#accordionContainer li {
+  border-top-width: 0px;
+  border-right-width: 0px;
+  border-bottom-width: 0px;
+  border-left-width: 0px;
+  border-style: initial;
+  border-color: initial;
 }
-                }
+
+* [class*=sciflow-cite] {
+  cursor: help;
+}
