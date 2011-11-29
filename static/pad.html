@@ -6,7 +6,6 @@
   <title>Etherpad Lite</title>
   <!-- CSS -->
   <link href="../static/css/pad.css" rel="stylesheet">
-  <link href="../static/css/sciflow.css" rel="stylesheet">
   <!-- javascript -->
   <script type="text/javascript">
   // <![CDATA[
@@ -18,8 +17,9 @@
   <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.4/jquery.js"></script>
   <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.16/jquery-ui.js"></script>
   <script type="text/javascript" src="/static/js/jquery.ui.selectmenu.js"></script>
-  <!-- widgets  -->
+  <!-- sciflow  -->
   <script src="../static/js/sciflow.js"></script>
+  <link href="../static/css/sciflow.css" rel="stylesheet">
   <link href="../static/css/widgets.css" rel="stylesheet">
   <!-- additional libraries -->
   <script src="../socket.io/socket.io.js"></script>
@@ -233,28 +233,12 @@
         </div>
       </div>
       <h3><a href="#">Bibliography</a></h3>
-      <div style="position:relative; padding-left: 10px; padding-right: 5px;">
+      <div id="sciflow-bibliography-widget" style="position:relative; padding-left: 10px; padding-right: 5px;">
         <div id="bibliographyCommandBar" style="position:relative; top:0px">
-          <a style="position:absolute; right:0px" class="ui-icon ui-icon-wrench" href="javascript:handleUserInterfaceEvent({
-            origin: 'bibliographyCommandBar.ChangeButton',
-            parameters: {
-            }
-          })"></a>
-          <a style="position:absolute; right:16px" class="ui-icon ui-icon-minus" href="javascript:handleUserInterfaceEvent({
-            origin: 'bibliographyCommandBar.DeleteButton',
-            parameters: {
-            }
-          })"></a>
-          <a style="position:absolute; right:32px" class="ui-icon ui-icon-plus" href="javascript:handleUserInterfaceEvent({
-            origin: 'bibliographyCommandBar.AddButton',
-            parameters: {
-            }
-          })"></a>
-          <a style="position:absolute; left:0px" class="ui-icon ui-icon-circle-arrow-w" href="javascript:handleUserInterfaceEvent({
-            origin: 'bibliographyCommandBar.InsertButton',
-            parameters: {
-            }
-          })"></a>
+          <a style="position:absolute; right:0px" class="ui-icon ui-icon-wrench" href="javascript:sciflow.bibliography.handleUserInterfaceEvent.change()"></a>
+          <a style="position:absolute; right:16px" class="ui-icon ui-icon-minus" href="javascript:sciflow.bibliography.handleUserInterfaceEvent.delete()"></a>
+          <a style="position:absolute; right:32px" class="ui-icon ui-icon-plus" href="javascript:sciflow.bibliography.handleUserInterfaceEvent.add()"></a>
+          <a style="position:absolute; left:0px" class="ui-icon ui-icon-circle-arrow-w" href="javascript:sciflow.bibliography.handleUserInterfaceEvent.insert()"></a>
         </div>
         <div style="overflow:auto; position:absolute; left:10px; right:10px; top:32px; bottom:10px;" class="ui-widget-content">
           <ol id="bibliographyList" style="border:0px; " class="myList">
