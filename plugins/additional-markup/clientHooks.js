@@ -1,7 +1,9 @@
 // command is an object containing the command name and the parameters
 exports.handleCommand = function(command)
 {
+  return sciflow.hookFunctions.handleCommand(command); 
 
+  /*
   //check if this is a supported command
   if(!(command.name.match(/^(?:changeHeading|addGraphic|addCite)$/)))
   {
@@ -120,9 +122,14 @@ exports.handleCommand = function(command)
   }
 
    var regExpmatch = 'foo'.match(/^bla/);
+   */
 }
 
 exports.aceAttribsToClasses = function(args) {
+
+  return sciflow.hookFunctions.aceAttribsToClasses(args);
+
+  /*
 
   if(args.key === 'graphic') return ['graphic:' + args.value];
   else if(args.key === 'cite') return ['cite'];
@@ -145,9 +152,15 @@ exports.aceAttribsToClasses = function(args) {
 
   if (args.key == 'heading6' && args.value != "")
     return ["headings:h6"];
+
+  */
 }
 
 exports.aceCreateDomLine = function(args) {
+
+  return sciflow.hookFunctions.aceCreateDomLine(args);
+
+  /*
 
   if(args.cls.indexOf('graphic') >= 0)
   {
@@ -203,6 +216,9 @@ exports.aceCreateDomLine = function(args) {
 
 exports.collectContentPre = function(args) {
 
+  return sciflow.hookFunctions.collectContentPre(args);
+
+  /*
   // TODO: Speed the whole function up. It runs every time a character is typed.
   var attributesToApply = [];
 
@@ -218,4 +234,10 @@ exports.collectContentPre = function(args) {
   while(attributesToApply.length > 0) {
     args.cc.doAttrib(args.state, attributesToApply.pop());
   }
+  */
+}
+
+exports.collectContentPost = function(args)
+{
+  return sciflow.hookFunctions.collectContentPost(args);
 }
