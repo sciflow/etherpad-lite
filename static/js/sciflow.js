@@ -11,6 +11,7 @@ $(document).ready(function()
 sciflow.apiPath = '/api/2';
 //sciflow.innerdocbodySelector = $('#editorcontainer').find('iframe').contents().find('iframe').contents();
 
+
 //////////////////////
 // helper functions //
 //////////////////////
@@ -293,12 +294,15 @@ sciflow.addElement = function(datastoreId, elementData, elementId, widget, listI
         }
       });
     },
-    //add element to the widget (only if element was successfully added to the datastore)
+    //add element to the widget and the local datastore cache instance (only if element was successfully added to the datastore)
     function(callback)
     {
       //if we replace a existing element, delete that element prior to putting the new one in
       if(isReplacingAdd)
         sciflow.deleteElementFromWidget(widget, elementId);
+      
+      //add (or replace) the cached datastore entry
+      sciflow.datastores[datastoreId].elements[elementId] = elementData;
 
       sciflow.addElementToWidget(widget, elementData, elementId, listItemHtmlGenerator);
       callback(null);
@@ -373,13 +377,13 @@ $.extend(sciflow.ui.dialogs.dialogDefaults, {
   }
 });
 
-sciflow.ui.dialogs.deletionConfirmationDialogTemplate = $('\
+sciflow.ui.dialogs.deletionConfirmationDialogTemplate = '\
   <div>\
     <p>\
       Do you realy want to remove this element ?\
     </p>\
   </div>\
-');
+';
 
 sciflow.ui.contextmenus.citeContextMenuTemplate = '\
   <ul id="myMenu" class="contextMenu">\
@@ -410,7 +414,7 @@ sciflow.addElementToWidget = function(widget, elementData, elementId, listItemHt
   var listItem = listItemHtmlGenerator(elementData, elementId, 24);
 
   if(typeof(listItem) === 'string')
-    widget.find('ol, ul').append(listItem);
+    widget.find('ol, ul').prepend(listItem);
 }
 
 sciflow.deleteElementFromWidget = function(widget, elementId)
@@ -486,6 +490,7 @@ sciflow.initializeAllWidgetsFromDatastore = function()
 {
   sciflow.metaInformations.initializeWidgetFromDatastore();
   sciflow.bibliography.initializeWidgetFromDatastore();
+  sciflow.graphics.initializeWidgetFromDatastore();
 }
 
 sciflow.serializeDialogContent = function(dialog, clearFieldsAfterSerialization)
@@ -579,7 +584,16 @@ sciflow.metaInformations.handleUserInterfaceEvent = {
   },
   delete: function()
   {
-    sciflow.ui.dialogs.deleteMetaInformation.dialog('open');
+    var selectedMetaInformation = sciflow.metaInformations.widget.find('.ui-selected').first();
+
+    if(! sciflow.isEmptyJQueryResult(selectedMetaInformation))
+    {
+      sciflow.ui.dialogs.deleteMetaInformation.dialog('open');
+    }
+    else
+    {
+      alert('Please select an entry to delete.');
+    }
   }
 }
 
@@ -792,10 +806,18 @@ sciflow.metaInformations.initializeWidgetFromDatastore = function()
 sciflow.metaInformations.listItemHtmlGenerator = function(elementData, elementId, elementDescriptorMaxLength)
 {
   var elementDescriptor;
+  var toolTip;
 
   switch(elementData.type)
   {
-    case "Author": elementDescriptor = 'Author (' + sciflow.getFixedSizeString(elementData.name, elementDescriptorMaxLength) + ')'; break;
+    case "Author":
+      elementDescriptor = 'Author (' + sciflow.getFixedSizeString(elementData.name, elementDescriptorMaxLength) + ')';
+      toolTip = elementData.name;
+      if(elementData.email !== '')
+        toolTip += ' (' + elementData.position + ')';
+      if(elementData.organization !== '')
+        toolTip +=  '&#xD;&#xD;' + elementData.organization; 
+      break;
     case "Title": elementDescriptor = 'Title (' + sciflow.getFixedSizeString(elementData.title, elementDescriptorMaxLength) + ')'; break;
     case "Subtitle": elementDescriptor = 'Subtitle (' + sciflow.getFixedSizeString(elementData.subtitle, elementDescriptorMaxLength) + ')'; break;
     case "Keywords": elementDescriptor = 'Keywords (' + sciflow.getFixedSizeString(elementData.keywords, elementDescriptorMaxLength) + ')'; break;
@@ -806,7 +828,7 @@ sciflow.metaInformations.listItemHtmlGenerator = function(elementData, elementId
   }
 
   //if the element was successfully added, update the widget
-  return('<li id="' + elementId + '" class="ui-widget-content ui-selectee">' + elementDescriptor + '</li>');
+  return('<li id="' + elementId + '" ' + (typeof(toolTip === 'string') ? 'title="' + toolTip + '" ' : '') + '" class="ui-widget-content ui-selectee">' + elementDescriptor + '</li>');
 }
 
 ////////////////////////////
@@ -856,7 +878,16 @@ sciflow.bibliography.handleUserInterfaceEvent = {
   },
   delete: function()
   {
-    sciflow.ui.dialogs.deleteBibliography.dialog('open');
+    var selectedBibliography = sciflow.bibliography.widget.find('.ui-selected').first();
+
+    if(! sciflow.isEmptyJQueryResult(selectedBibliography))
+    {
+      sciflow.ui.dialogs.deleteBibliography.dialog('open');
+    }
+    else
+    {
+      alert('Please select an entry to delete.');
+    }
   },
   insert: function()
   {
@@ -864,9 +895,7 @@ sciflow.bibliography.handleUserInterfaceEvent = {
 
     if(! sciflow.isEmptyJQueryResult(selectedBibliography))
     {
-      //call the additional markup plugin
-      //plugins.callHook('handleCommand', { name: 'addBibliography', parameters: { id: selectedBibliography.attr('id') } });
-      alert('Not implemented yet');
+      sciflow.hookFunctions.toggleCite(selectedBibliography.attr('id'));
     }
     else
     {
@@ -924,8 +953,10 @@ sciflow.ui.dialogs.bibliographyDialogTemplate = '\
         <label for="publisher">Publisher</label>\
         <input type="text" name="publisher" class="text ui-widget-content ui-corner-all" />\
       </div>\
-      <label for="journal">Journal</label>\
-      <input type="text" name="journal" class="text ui-widget-content ui-corner-all" />\
+      <div>\
+        <label for="journal">Journal</label>\
+        <input type="text" name="journal" class="text ui-widget-content ui-corner-all" />\
+      </div>\
     </fieldset>\
   </div>\
 ';
@@ -1043,11 +1074,27 @@ sciflow.bibliography.initializeWidgetFromDatastore = function()
 sciflow.bibliography.listItemHtmlGenerator = function(elementData, elementId, elementDescriptorMaxLength)
 {
   var elementDescriptor;
+  var toolTip = elementData.title;
 
   switch(elementData.type)
   {
     case "Article": elementDescriptor = sciflow.getFixedSizeString(elementData.title, elementDescriptorMaxLength) + ' (Article)'; break;
-    case "Book": elementDescriptor = sciflow.getFixedSizeString(elementData.title, elementDescriptorMaxLength) + ' (Book)'; break;
+    case "Book":
+      elementDescriptor = sciflow.getFixedSizeString(elementData.title, elementDescriptorMaxLength) + ' (Book)';
+      if(elementData.authors !== '')
+      {
+        toolTip += '&#xD;&#xD;' + elementData.authors;
+
+        if(elementData.year !== '' || elementData.publisher !== '')
+        {
+          toolTip += ' (';
+          if(elementData.publisher !== '')
+            toolTip += elementData.publisher + ' - ';
+          if(elementData.year !== '')
+            toolTip += elementData.year + ')' ;
+        }
+      }
+    break;
     case "Booklet": elementDescriptor = sciflow.getFixedSizeString(elementData.title, elementDescriptorMaxLength) + ' (Booklet)'; break;
     case "Conference": elementDescriptor = sciflow.getFixedSizeString(elementData.title, elementDescriptorMaxLength) + ' (Conference)'; break;
     case "Inbook": elementDescriptor = sciflow.getFixedSizeString(elementData.title, elementDescriptorMaxLength) + ' (Inbook)'; break;
@@ -1063,7 +1110,220 @@ sciflow.bibliography.listItemHtmlGenerator = function(elementData, elementId, el
   }
 
   //if the element was successfully added, update the widget
-  return('<li id="' + elementId + '" title="' + elementData.title + '" class="ui-widget-content ui-selectee">' + elementDescriptor + '</li>');
+  return('<li id="' + elementId + '" ' + (typeof(toolTip === 'string') ? 'title="' + toolTip + '" ' : '') + '" class="ui-widget-content ui-selectee">' + elementDescriptor + '</li>');
+}
+
+////////////////////////
+// graphics component //
+////////////////////////
+
+$.extend(sciflow, { graphics: {}});
+
+//
+// ui
+//
+
+//get the main widget
+sciflow.graphics.widget = $('#sciflow-graphics-widget');
+
+//handle ui requests
+sciflow.graphics.handleUserInterfaceEvent = {
+  add: function()
+  {
+    sciflow.ui.dialogs.addGraphic.dialog('open')
+  },
+  change: function(elementId)
+  {
+    //if there is no elementId given, take the first selected element in the widget
+    if(typeof(elementId) !== 'string')
+      var elementId = sciflow.graphics.widget.find('.ui-selected').first().attr('id');
+
+    //if elementId is still undefined (because there was no element selected) return
+    if(typeof(elementId) !== 'string')
+      return;
+
+    sciflow.getElementFromDatastore('graphics', elementId, function(elementData)
+    {
+      //we need to put the elementId into the dialog content in order to know, which element to change later
+      elementData.elementId = elementId;
+      
+      sciflow.loadDialogContent(sciflow.ui.dialogs.changeGraphic, elementData);
+
+      sciflow.ui.dialogs.changeGraphic.dialog('open');
+    });
+  },
+  delete: function()
+  {
+    var selectedGraphic = sciflow.graphics.widget.find('.ui-selected').first();
+
+    if(! sciflow.isEmptyJQueryResult(selectedGraphic))
+    {
+      sciflow.ui.dialogs.deleteGraphic.dialog('open');
+    }
+    else
+    {
+      alert('Please select an entry to delete.');
+    }
+  },
+  insert: function()
+  {
+    var selectedGraphic = sciflow.graphics.widget.find('.ui-selected').first(); 
+
+    if(! sciflow.isEmptyJQueryResult(selectedGraphic))
+    {
+      sciflow.hookFunctions.toggleGraphic(selectedGraphic.attr('id'))
+    }
+    else
+    {
+      alert('Please select an entry to insert.');
+    }
+  },
+  showPreview: function()
+  {
+    var selectedImage = sciflow.graphics.widget.find('.ui-selected').find('img');
+    
+    //just handle the first one, if multiple images are selected
+    var previewDialog = $('<div><img src=' + selectedImage.attr('src') + ' /></div>').dialog({autoOpen: true, title: 'Preview', modal: true, width: 400});
+  }
+}
+
+//html template for the add/change graphic dialog
+sciflow.ui.dialogs.graphicDialogTemplate = '\
+  <div>\
+    <fieldset>\
+      <div>\
+        <input type="hidden" name="elementId" value="" />\
+      </div>\
+      <div>\
+        <input type="hidden" name="type" value="" />\
+      </div>\
+      <div>\
+        <label for="title">Title</label>\
+        <input type="text" name="title" class="text ui-widget-content ui-corner-all" />\
+      </div>\
+      <div id="url">\
+        <label for="url">Url</label>\
+        <input type="text" name="url" class="text ui-widget-content ui-corner-all" />\
+      </div>\
+      <div id="caption">\
+        <label for="caption">Caption</label>\
+        <input type="text" name="caption" class="text ui-widget-content ui-corner-all" />\
+      </div>\
+    </fieldset>\
+  </div>\
+';
+
+//create the add graphic dialog
+sciflow.ui.dialogs.addGraphic = $(sciflow.ui.dialogs.graphicDialogTemplate).dialog(
+  $.extend(true,
+  {
+    title: 'Add graphic',
+    buttons:
+    {
+      Add: function()
+      {
+        var thisDialog = $(this);
+
+        var dialogContent = sciflow.serializeDialogContent(thisDialog);
+
+        //remove the elementId entry
+        dialogContent.elementId = undefined;
+
+        sciflow.addElement('graphics', dialogContent, null, sciflow.graphics.widget, sciflow.graphics.listItemHtmlGenerator, function()
+        {
+          thisDialog.dialog('close');
+        });
+      },
+    }
+  }, sciflow.ui.dialogs.dialogDefaults)
+);
+
+//create the change graphic dialog
+sciflow.ui.dialogs.changeGraphic = $(sciflow.ui.dialogs.graphicDialogTemplate).dialog(
+  $.extend(true,
+  {
+    title: 'Change graphic',
+    buttons:
+    {
+      Change: function()
+      {
+        var thisDialog = $(this);
+
+        //we need to extract the elementId for the "named" add
+        var dialogContent = sciflow.serializeDialogContent(thisDialog);
+        var elementId = dialogContent.elementId;
+
+        //remove the elementId entry
+        dialogContent.elementId = undefined;
+
+        //know use a "named" add (elementId set) to replace the datastore element with that id with the new data
+        sciflow.addElement('graphics', dialogContent, elementId, sciflow.graphics.widget, sciflow.graphics.listItemHtmlGenerator, function()
+        {
+          thisDialog.dialog('close');
+        });
+      },
+    }
+  }, sciflow.ui.dialogs.dialogDefaults)
+);
+
+$.each([sciflow.ui.dialogs.addGraphic, sciflow.ui.dialogs.changeGraphic], function(index, dialog)
+{
+  //if there are things to apply to the graphic dialogs
+});
+
+//create the deleteGraphic dialog
+sciflow.ui.dialogs.deleteGraphic = $(sciflow.ui.dialogs.deletionConfirmationDialogTemplate).dialog(
+  $.extend(true,
+  {
+    title: 'Delete graphic',
+    buttons:
+    {
+      Delete: function()
+      {
+        var thisDialog = $(this);
+
+        //get the selected items
+        var listOfElements = [];
+        
+        sciflow.graphics.widget.find('.ui-selected').each(function(index, element)
+        {
+          listOfElements[index] = $(element).attr('id');
+        });
+
+        sciflow.deleteElements('graphics', listOfElements, sciflow.graphics.widget, function()
+        {
+          thisDialog.dialog('close');
+        });
+      },
+    }
+  }, sciflow.ui.dialogs.dialogDefaults)
+);
+
+//
+// component logic
+//
+
+//shortcut to initialize the graphic widget
+sciflow.graphics.initializeWidgetFromDatastore = function()
+{
+  sciflow.initializeWidgetFromDatastore('graphics', sciflow.graphics.widget, sciflow.graphics.listItemHtmlGenerator);
+}
+
+//creates the html of an li element of the graphics list
+sciflow.graphics.listItemHtmlGenerator = function(elementData, elementId, elementDescriptorMaxLength)
+{
+  var elementDescriptor = (elementData.title !== '') ? elementData.title : elementId;
+  var toolTip = '';
+  
+  toolTip += (elementData.caption !== '') ? elementData.caption : '';
+
+  //if the element was successfully added, update the widget
+  return('\
+    <li id="' + elementId + '" ' + ((toolTip !== '') ? 'title="' + toolTip + '" ' : '') + '" class="ui-widget-content ui-selectee">\
+      <div class="ui-widget-header">' + elementDescriptor + '</div>\
+        <img src="' + elementData.url + '" height="96" //>\
+    </li>\
+  ');
 }
 
 //
@@ -1203,39 +1463,47 @@ sciflow.hookFunctions.aceAttribsToClasses = function(args)
 // aceCreateDomLine
 sciflow.hookFunctions.aceCreateDomLine = function(args) {
 
-  var result = {
-    extraOpenTags: '',
-    extraCloseTags: '',
-    cls: ''
-  };
+  var classes = [];
+  var openTags = [];
+  var closeTags = [];
 
   if(args.cls.indexOf('sciflow') >= 0)
   {
-    result.cls = args.cls;
+    classes.push(args.cls);
 
     //if this is a heading
     if(args.cls.indexOf('sciflow-heading') >= 0)
     {
       //
     }
-    else if(args.cls.indexOf('sciflow-graphic') >= 0)
+    if(args.cls.indexOf('sciflow-graphic') >= 0)
     {
-      //result.extraOpenTags = '<img title="' + parent.parent.sciflow.datastores['graphics']  elementData.title + '" src="' + elementData.url  + '">';
-      //result.extraCloseTags = '</img>';
+      var elementId = args.cls.match(/sciflow-graphic:(\S+)(?:$| )/)[1];
+      
+      var url = sciflow.datastores.graphics.elements[elementId].url;
+      var toolTip = sciflow.datastores.graphics.elements[elementId].caption;
+
+      openTags.push('<img src="' + url + '" title="' + toolTip +'" onclick="parent.parent.sciflow.graphics.handleUserInterfaceEvent.change(\'' + elementId + '\');" />');
+      closeTags.push('');
     }
-    else if(args.cls.indexOf('sciflow-cite') >= 0)
+    if(args.cls.indexOf('sciflow-cite') >= 0)
     {
       var elementId = args.cls.match(/sciflow-cite:(\S+)(?:$| )/)[1];
+      var toolTip = sciflow.datastores.bibliography.elements[elementId].title;
 
-      var title = parent.parent.sciflow.datastores.bibliography.elements[elementId].title;
-
-      result.extraOpenTags = '<span title="' + title + '" style="cursor: help;" onclick="parent.parent.sciflow.bibliography.handleUserInterfaceEvent.change(\'' + elementId + '\');">';
-      //result.extraOpenTags = '<span title="' + title + '" onclick="parent.parent.sciflow.bibliography.handleUserInterfaceEvent(\'' + elementId + '\')">';
-      result.extraCloseTags = '</a></span>';
+      openTags.push('<span title="' + toolTip + '" onclick="parent.parent.sciflow.bibliography.handleUserInterfaceEvent.change(\'' + elementId + '\');">');
+      closeTags.push('</span>');
     }
   }
 
-  return result;
+  if(classes.length > 0)
+  {
+    return {
+      cls: classes.join(' '),
+      extraOpenTags: openTags.join(''),
+      extraCloseTags: closeTags.join('')
+    };
+  }
 }
 
 //collectContentPre
