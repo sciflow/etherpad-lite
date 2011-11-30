@@ -385,7 +385,7 @@ function exportPadRevision(req, res, handleResult)
                 //if there was somekind of an error, than we need to load the graphic
                 if(typeof(err) !== 'undefined' && err !== null)
                 {
-                  child_process.spawn('curl', ['-s', '-O', graphicUrl], { cwd : graphicsDirectory }).on('exit', function (returnCode)
+                  child_process.spawn('curl', ['-s', '-O', graphicUrl ], { cwd : graphicsDirectory }).on('exit', function (returnCode)
                   {
                     //duplicated code !!!
                     padLatex = padLatex.replace(statement, statement.replace(/\{.*\}/, '{../../' + graphicUrl.match(/([^\/]+)$/)[1] + '}'));
@@ -405,16 +405,8 @@ function exportPadRevision(req, res, handleResult)
               callback(null, padLatex);
             });
           },
-          //write the latex source to a file
-          function(padLatex, callback)
-          {
-            fs.writeFile(exportDirectory + '/pad.tex', padLatex, encoding='utf8', function(err)
-            {
-              callback(null);
-            });
-          },
           //get pad metaInformations
-          function(callback)
+          function(padLatex, callback)
           {
             var padMetaInformations = {};
 
@@ -434,8 +426,32 @@ function exportPadRevision(req, res, handleResult)
                 //if there is no template, take ieeetran
                 padMetaInformations['latex-template'] = (typeof(padMetaInformations['latex-template']) === 'undefined') ? { templateId : 'ieeetran' } : padMetaInformations['latex-template'];
 
-                callback(err, padMetaInformations);
+                callback(err, padLatex, padMetaInformations);
               });
+            });
+          },
+          //replace meta informations in pad (title, author, etc.)
+          function(padLatex, padMetaInformations, callback)
+          {
+            /*
+            //padLatex = padLatex.replace(/\\title
+            var metaInformation;
+
+            for(metaInformation in padMetaInformations)
+            {
+              if(padMetaInformations[metaInformation].type = "Title")
+                padLatex = padLatex.replace(/\\title\{[^\}*]}/, '\\title{' + padMetaInformations[metaInformation].title + '}\n');
+            }
+            */
+
+            callback(null, padLatex, padMetaInformations);
+          },
+          //write the latex source to a file
+          function(padLatex, padMetaInformations, callback)
+          {
+            fs.writeFile(exportDirectory + '/pad.tex', padLatex, encoding='utf8', function(err)
+            {
+              callback(null, padMetaInformations);
             });
           },
           //symlink the template files into the export directory
@@ -523,6 +539,9 @@ function exportPadRevision(req, res, handleResult)
           {
             var pdfFilePath = exportDirectory + '/' + padMetaInformations['latex-template'].templateId + '.pdf';
 
+            res.header('Pragma', 'no-cache');
+            res.header('Cache-Control', 'no-cache');
+            
             res.contentType('application/pdf');
             res.sendfile(pdfFilePath);
             callback(null);
