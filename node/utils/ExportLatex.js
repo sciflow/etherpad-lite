@@ -15,6 +15,7 @@
  */
 
 var async = require("async");
+var db = require("../db/DB").db;
 var Changeset = require("./Changeset");
 var padManager = require("../db/PadManager");
 
@@ -81,8 +82,11 @@ function getPadLatex(pad, revNum, callback)
   });
 }
 
-function generateExportTags(attributeName, attributeValue, tagType)
+function generateExportTags(attributeName, attributeValue, tagType, padId)
 {
+  var leftoverDataOpenTag = '\\removeme{';
+  var leftoverDataCloseTag = '}';
+
   if(attributeName === 'bold')                return (tagType === 'openTag') ? '\\textbf{'                           : '}';
   else if (attributeName === 'italic')        return (tagType === 'openTag') ? '\\textit{'                           : '}';
   else if (attributeName === 'underline')     return (tagType === 'openTag') ? '\\underline{'                        : '}';
@@ -103,15 +107,56 @@ function generateExportTags(attributeName, attributeValue, tagType)
     return (tagType === 'openTag') ? '\\bullet7{'                                                                    : '}';
   else if (attributeName === 'list' &&  attributeValue === 'bullet8')
     return (tagType === 'openTag') ? '\\bullet8{'                                                                    : '}';
-  else if (attributeName === 'heading1')      return (tagType === 'openTag') ? '\\chapter{'                          : '}\n';
-  else if (attributeName === 'heading2')      return (tagType === 'openTag') ? '\\section{'                          : '}\n';
-  else if (attributeName === 'heading3')      return (tagType === 'openTag') ? '\\subsection{'                       : '}\n';
-  else if (attributeName === 'heading4')      return (tagType === 'openTag') ? '\\subsubsection{'                    : '}\n';
-  else if (attributeName === 'heading5')      return (tagType === 'openTag') ? '\\paragraph{'                        : '}\n';
-  else if (attributeName === 'heading6')      return (tagType === 'openTag') ? '\\subparagraph{'                     : '}\n';
-  else if (attributeName === 'graphic')
-    return (tagType === 'openTag') ? '\\begin{figure}\n  \\centering\n  \\includegraphics[width=\\columnwidth, keepaspectratio=true]{' + JSON.parse(attributeValue).url                           : '}\n  \\caption{Ein Bild}\n\\end{figure}';
-  else if (attributeName === 'cite')          return (tagType === 'openTag') ? '\\cite{'            + attributeValue : '}';
+  else if (attributeName === 'sciflow-heading1')      return (tagType === 'openTag') ? '\\chapter{'                          : '}\n';
+  else if (attributeName === 'sciflow-heading2')      return (tagType === 'openTag') ? '\\section{'                          : '}\n';
+  else if (attributeName === 'sciflow-heading3')      return (tagType === 'openTag') ? '\\subsection{'                       : '}\n';
+  else if (attributeName === 'sciflow-heading4')      return (tagType === 'openTag') ? '\\subsubsection{'                    : '}\n';
+  else if (attributeName === 'sciflow-heading5')      return (tagType === 'openTag') ? '\\paragraph{'                        : '}\n';
+  else if (attributeName === 'sciflow-heading6')      return (tagType === 'openTag') ? '\\subparagraph{'                     : '}\n';
+  //graphics
+  else if(attributeName.search(/sciflow-graphic:/) >= 0)
+  {
+    var elementId = attributeName.match(/sciflow-graphic:(\S+)/)[1];
+    var elementData;
+
+    
+    async.series([
+      function(callback)
+      {
+        db.get("pad:" + padId + ":datastores:graphics:" + elementId, function(err, result)
+        {
+          elementData = result;
+          callback(null);
+        });
+      }
+    ], function(err)
+    {
+      if(err)
+        console.log('Error in LaTeX export!.');
+    });
+
+    if(typeof(elementData) === 'object')
+    {
+
+      var graphicUrl = (typeof(elementData.url) === 'string') ? elementData.url : '';
+      var graphicCaption = (typeof(elementData.caption) === 'string') ? elementData.caption : '';
+    
+      var openTag = '\\begin{figure}\n  \\centering\n  \\includegraphics[width=\\columnwidth, keepaspectratio=true]{' + graphicUrl + '}\n' + leftoverDataOpenTag;
+      var closeTag = leftoverDataCloseTag + ((graphicCaption !== '') ? '  \\caption{' + graphicCaption + '}\n' : '') + '  \\label{' + elementId + '}\n\\end{figure}';
+    }
+
+    return (tagType === 'openTag') ? openTag : closeTag;
+  }
+  //cites
+  else if(attributeName.search(/sciflow-cite:/) >= 0)
+  {
+    var elementId = attributeName.match(/sciflow-cite:(\S+)/)[1];
+
+    var openTag = '\\ref{' + elementId + '}\n' + leftoverDataOpenTag;
+    var closeTag = leftoverDataCloseTag;
+
+    return (tagType === 'openTag') ? openTag : closeTag;
+  }
   else if (attributeName === 'footnote')      return (tagType === 'openTag') ? '\\footnote{'        + attributeValue : '}';
   else return '';
 }
@@ -136,8 +181,8 @@ function getLatexFromAtext(pad, atext)
     attributes[attributeId].value = attributeValue;
     attributes[attributeId].currentState = undefined;
 
-    attributes[attributeId].openTag = generateExportTags(attributeName, attributeValue, 'openTag');
-    attributes[attributeId].closeTag = generateExportTags(attributeName, attributeValue, 'closeTag');
+    attributes[attributeId].openTag = generateExportTags(attributeName, attributeValue, 'openTag', pad.id);
+    attributes[attributeId].closeTag = generateExportTags(attributeName, attributeValue, 'closeTag', pad.id);
   }
 
   var pieces = [];
@@ -311,7 +356,10 @@ function getLatexFromAtext(pad, atext)
     }
   }
 
-  return lines.join('\n');
+  var intermediateResult = lines.join('\n');
+  var finalResult = intermediateResult.replace(/\\removeme\{[^\}]*\}/g, '');
+
+  return finalResult; 
 }
 
 function _analyzeLine(text, aline, attributePool)
