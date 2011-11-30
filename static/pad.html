@@ -200,9 +200,9 @@
       <h3><a href="#">Meta Informations</a></h3>
       <div id="sciflow-metaInformations-widget" style="position:relative; padding-left: 10px; padding-right: 5px;">
         <div id="metaInformationsCommandBar" style="position:relative; top:0px">
-          <a style="position:absolute; right:0px" class="ui-icon ui-icon-wrench" href="javascript:sciflow.metaInformations.handleUserInterfaceEvent.change()"></a>
-          <a style="position:absolute; right:16px" class="ui-icon ui-icon-minus" href="javascript:sciflow.metaInformations.handleUserInterfaceEvent.delete()"></a>
-          <a style="position:absolute; right:32px" class="ui-icon ui-icon-plus" href="javascript:sciflow.metaInformations.handleUserInterfaceEvent.add()"></a>
+          <a title="Change meta information" style="position:absolute; right:0px" class="ui-icon ui-icon-wrench" href="javascript:sciflow.metaInformations.handleUserInterfaceEvent.change()"></a>
+          <a title="Delete meta information" style="position:absolute; right:16px" class="ui-icon ui-icon-minus" href="javascript:sciflow.metaInformations.handleUserInterfaceEvent.delete()"></a>
+          <a title="Add meta information" style="position:absolute; right:32px" class="ui-icon ui-icon-plus" href="javascript:sciflow.metaInformations.handleUserInterfaceEvent.add()"></a>
         </div>
         <div style="overflow:auto; position:absolute; left:10px; right:10px; top:32px; bottom:40px;" class="ui-widget-content">
           <ol id="metaInformationsList" style="border:0px; ">
@@ -235,10 +235,10 @@
       <h3><a href="#">Bibliography</a></h3>
       <div id="sciflow-bibliography-widget" style="position:relative; padding-left: 10px; padding-right: 5px;">
         <div id="bibliographyCommandBar" style="position:relative; top:0px">
-          <a style="position:absolute; right:0px" class="ui-icon ui-icon-wrench" href="javascript:sciflow.bibliography.handleUserInterfaceEvent.change()"></a>
-          <a style="position:absolute; right:16px" class="ui-icon ui-icon-minus" href="javascript:sciflow.bibliography.handleUserInterfaceEvent.delete()"></a>
-          <a style="position:absolute; right:32px" class="ui-icon ui-icon-plus" href="javascript:sciflow.bibliography.handleUserInterfaceEvent.add()"></a>
-          <a style="position:absolute; left:0px" class="ui-icon ui-icon-circle-arrow-w" href="javascript:sciflow.bibliography.handleUserInterfaceEvent.insert()"></a>
+          <a title="Change bibliography" style="position:absolute; right:0px" class="ui-icon ui-icon-wrench" href="javascript:sciflow.bibliography.handleUserInterfaceEvent.change()"></a>
+          <a title="Delete bibliography" style="position:absolute; right:16px" class="ui-icon ui-icon-minus" href="javascript:sciflow.bibliography.handleUserInterfaceEvent.delete()"></a>
+          <a title="Add bibliography" style="position:absolute; right:32px" class="ui-icon ui-icon-plus" href="javascript:sciflow.bibliography.handleUserInterfaceEvent.add()"></a>
+          <a title="Insert citation into pad" style="position:absolute; left:0px" class="ui-icon ui-icon-circle-arrow-w" href="javascript:sciflow.bibliography.handleUserInterfaceEvent.insert()"></a>
         </div>
         <div style="overflow:auto; position:absolute; left:10px; right:10px; top:32px; bottom:10px;" class="ui-widget-content">
           <ol id="bibliographyList" style="border:0px; " class="myList">
@@ -259,33 +259,13 @@
         </div>
       </div>
       <h3><a href="#">Graphics</a></h3>
-      <div style="position:relative; padding-left: 10px; padding-right: 5px;">
+      <div id="sciflow-graphics-widget" style="position:relative; padding-left: 10px; padding-right: 5px;">
         <div id="graphicsCommandBar" style="position:relative; top:0px">
-          <a title="Configure image" style="position:absolute; right:0px" class="ui-icon ui-icon-wrench" href="javascript:handleUserInterfaceEvent({
-            origin: 'graphicsCommandBar.AddButton',
-            parameters: {
-            }
-          })"></a>
-          <a title="Remove image" style="position:absolute; right:16px" class="ui-icon ui-icon-minus" href="javascript:handleUserInterfaceEvent({
-            origin: 'graphicsCommandBar.DeleteButton',
-            parameters: {
-            }
-          })"></a>
-          <a title="Add image" style="position:absolute; right:32px" class="ui-icon ui-icon-plus" href="javascript:handleUserInterfaceEvent({
-            origin: 'graphicsCommandBar.AddButton',
-            parameters: {
-            }
-          })"></a>
-          <a title="Insert image in text" style="position:absolute; left:0px" class="ui-icon ui-icon-circle-arrow-w" href="javascript:handleUserInterfaceEvent({
-            origin: 'graphicsCommandBar.InsertButton',
-            parameters: {
-            }
-          })"></a>
-          <a title="Show image" style="position:absolute; right:48px" class="ui-icon ui-icon-zoomin" href="javascript:handleUserInterfaceEvent({
-            origin: 'graphicsCommandBar.ZoominButton',
-            parameters: {
-            }
-          })"></a>
+          <a title="Configure graphic" style="position:absolute; right:0px" class="ui-icon ui-icon-wrench" href="javascript:sciflow.graphics.handleUserInterfaceEvent.change()"></a>
+          <a title="Delete graphic" style="position:absolute; right:16px" class="ui-icon ui-icon-minus" href="javascript:sciflow.graphics.handleUserInterfaceEvent.delete()"></a>
+          <a title="Add graphic" style="position:absolute; right:32px" class="ui-icon ui-icon-plus" href="javascript:sciflow.graphics.handleUserInterfaceEvent.add()"></a>
+          <a title="Insert graphic into pad" style="position:absolute; left:0px" class="ui-icon ui-icon-circle-arrow-w" href="javascript:sciflow.graphics.handleUserInterfaceEvent.insert()"></a>
+          <a title="Show graphic" style="position:absolute; right:48px" class="ui-icon ui-icon-zoomin" href="javascript:sciflow.graphics.handleUserInterfaceEvent.showPreview()"></a>
         </div>
         <div style="overflow:auto; position:absolute; left:10px; right:10px; top:32px; bottom:10px;" class="ui-widget-content">
           <ul id="graphicsList" style="border:0px; position:relative" class="myList">
@@ -314,10 +294,12 @@
           </ul>
         </div>
       </div>
+      <!--
       <h3><a href="#">Chat</a></h3>
       <div id="chatDiv" title="Dialog">
       <p>Here comes the chat.</p>
       </div>
+      -->
     </div> <!-- end accordion div -->
   </div>   <!-- end accordion container div -->
 </div>     <!-- end widget container div -->
