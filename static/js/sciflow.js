@@ -428,13 +428,14 @@ sciflow.initializeWidgetFromDatastore = function(datastoreId, widget, listItemHt
   //retrieve the list of elements for that datastore
   sciflow.getListOfDatastoreElements(datastoreId, function(listOfElements)
   {
-    if(typeof(listOfElements) === 'object')
+    sciflow.datastores = (typeof(sciflow.datastores) === 'undefined') ? {} : sciflow.datastores;
+    sciflow.datastores[datastoreId] = (typeof(sciflow.datastores[datastoreId])  === 'undefined') ? {} : sciflow.datastores[datastoreId];
+    sciflow.datastores[datastoreId]['listOfElements'] = (typeof(sciflow.datastores[datastoreId]['listOfElements']) === 'undefined') ? {} : sciflow.datastores[datastoreId]['listOfElements'];
+     sciflow.datastores[datastoreId]['elements'] = (typeof(sciflow.datastores[datastoreId]['elements']) === 'undefined') ? {} : sciflow.datastores[datastoreId]['elements']; 
+
+    if(typeof(listOfElements) === 'object' && listOfElements !== null)
     {
       //in order to improve to performance we check, if there are no adds/delets since the last call
-      sciflow.datastores = (typeof(sciflow.datastores) === 'undefined') ? {} : sciflow.datastores;
-      sciflow.datastores[datastoreId] = (typeof(sciflow.datastores[datastoreId])  === 'undefined') ? {} : sciflow.datastores[datastoreId];
-      sciflow.datastores[datastoreId]['listOfElements'] = (typeof(sciflow.datastores[datastoreId]['listOfElements']) === 'undefined') ? {} : sciflow.datastores[datastoreId]['listOfElements'];
-    
       if(sciflow.areArraysEqual(sciflow.datastores[datastoreId]['listOfElements'], listOfElements))
       {
         //TODO: comment this out to prevent loading all elements everytime the widget is updated
@@ -608,6 +609,7 @@ sciflow.ui.dialogs.metaInformationsDialogTemplate = '\
         <label for="type">Type of meta information</label>\
         <select name="type">\
           <option>Author</option>\
+          <option>Abstract</option>\
           <option>Categories</option>\
           <option>General Terms</option>\
           <option>Keywords</option>\
@@ -626,8 +628,12 @@ sciflow.ui.dialogs.metaInformationsDialogTemplate = '\
         <input type="text" name="telephone" class="text ui-widget-content ui-corner-all" />\
         <label for="email">Email</label>\
         <input type="text" name="email" class="text ui-widget-content ui-corner-all" />\
-        <label for="adress">Adress</label>\
-        <textarea id="adress" name="adress" class="text ui-widget-content ui-corner-all" />\
+        <label for="address">Address</label>\
+        <textarea id="address" name="address" class="text ui-widget-content ui-corner-all" />\
+      </div>\
+      <div id="abstract" style="display: none">\
+        <label for="abstract">Abstract</label>\
+        <textarea name="abstract" class="text ui-widget-content ui-corner-all"/>\
       </div>\
       <div id="categories" style="display: none">\
         <label for="categories">Categories</label>\
@@ -668,16 +674,16 @@ sciflow.ui.dialogs.addMetaInformation = $(sciflow.ui.dialogs.metaInformationsDia
         var dialogContent = sciflow.serializeDialogContent(thisDialog, false);
 
         //some elements are only allowed once, so we have to check if such an element is already in the list
-        var typeOfMetaInformation;;
+        var restrictedTypeOfMetaInformation;
 
         for(restrictedTypeOfMetaInformation in { Title: 1, Subtitle: 1, Abstract: 1 })
         {
           if(dialogContent.type === restrictedTypeOfMetaInformation)
           {
-            var searchResult = sciflow.metaInformations.widget.find('li:contains(' + typeOfMetaInformation + ')');
+            var searchResult = sciflow.metaInformations.widget.find('li:contains(' + restrictedTypeOfMetaInformation + ')');
             if(! sciflow.isEmptyJQueryResult(searchResult))
             {
-              alert('There is already a ' + typeOfMetaInformation.toLowerCase() + '. Please use the modify button or the delete button.');
+              alert('There is already a ' + restrictedTypeOfMetaInformation.toLowerCase() + '. Please use the modify button or the delete button.');
               thisDialog.dialog('close');
               return;
             }
@@ -692,6 +698,7 @@ sciflow.ui.dialogs.addMetaInformation = $(sciflow.ui.dialogs.metaInformationsDia
         sciflow.addElement('metaInformations', dialogContent, null, sciflow.metaInformations.widget, sciflow.metaInformations.listItemHtmlGenerator, function()
         {
           thisDialog.dialog('close');
+          pad.collabClient.sendMessage({type:'DATASTORE_UPDATE'});
         });
       },
     }
@@ -720,6 +727,7 @@ sciflow.ui.dialogs.changeMetaInformation = $(sciflow.ui.dialogs.metaInformations
         sciflow.addElement('metaInformations', dialogContent, elementId, sciflow.metaInformations.widget, sciflow.metaInformations.listItemHtmlGenerator, function()
         {
           thisDialog.dialog('close');
+          pad.collabClient.sendMessage({type:'DATASTORE_UPDATE'});
         });
       },
     }
@@ -737,7 +745,7 @@ $.each([sciflow.ui.dialogs.addMetaInformation, sciflow.ui.dialogs.changeMetaInfo
       obj.value = obj.value.toLowerCase();
       obj.value = (obj.value === 'general terms') ? 'generalTerms' : obj.value;
 
-      $(this).parent().parent().find('#author, #categories, #generalTerms, #keywords, #subtitle, #title').not('#' + obj.value).hide();
+      $(this).parent().parent().find('#author, #abstract, #categories, #generalTerms, #keywords, #subtitle, #title').not('#' + obj.value).hide();
       $(this).parent().parent().find('#' + obj.value).show();
     }
   });
@@ -766,6 +774,7 @@ sciflow.ui.dialogs.deleteMetaInformation = $(sciflow.ui.dialogs.deletionConfirma
         sciflow.deleteElements('metaInformations', listOfElements, sciflow.metaInformations.widget, function()
         {
           thisDialog.dialog('close');
+          pad.collabClient.sendMessage({type:'DATASTORE_UPDATE'});
         });
       },
     }
@@ -785,9 +794,9 @@ sciflow.metaInformations.initializeWidgetFromDatastore = function()
   sciflow.getElementFromDatastore('metaInformations', 'latex-template', function(result)
   {
     //if there is no template setting yet, set it to the default 'ieeetran'
-    if(typeof(result) === 'undefined')
+    if(typeof(result) === 'undefined' || result === null)
     {
-      sciflow.addElementToDatastore('metaInformations', { type: 'latex-template', templateId: templateId }, 'latex-template');
+      sciflow.addElementToDatastore('metaInformations', { type: 'latex-template', templateId: 'ieeetran' }, 'latex-template');
     }
     else
     {
@@ -824,6 +833,7 @@ sciflow.metaInformations.listItemHtmlGenerator = function(elementData, elementId
     case "Categories": elementDescriptor = 'Categories (' + sciflow.getFixedSizeString(elementData.categories, elementDescriptorMaxLength) + ')'; break;
     case "General Terms": elementDescriptor = 'General Terms (' + sciflow.getFixedSizeString(elementData.generalTerms, elementDescriptorMaxLength) + ')'; break;
     case "latex-template": return;
+    case "Abstract": elementDescriptor = 'Abstract'; break;
     default: elementDescriptor = 'Unknown type of metaInformation'; break;
   }
 
@@ -980,6 +990,7 @@ sciflow.ui.dialogs.addBibliography = $(sciflow.ui.dialogs.bibliographyDialogTemp
         sciflow.addElement('bibliography', dialogContent, null, sciflow.bibliography.widget, sciflow.bibliography.listItemHtmlGenerator, function()
         {
           thisDialog.dialog('close');
+          pad.collabClient.sendMessage({type:'DATASTORE_UPDATE'});
         });
       },
     }
@@ -1008,6 +1019,7 @@ sciflow.ui.dialogs.changeBibliography = $(sciflow.ui.dialogs.bibliographyDialogT
         sciflow.addElement('bibliography', dialogContent, elementId, sciflow.bibliography.widget, sciflow.bibliography.listItemHtmlGenerator, function()
         {
           thisDialog.dialog('close');
+          pad.collabClient.sendMessage({type:'DATASTORE_UPDATE'});
         });
       },
     }
@@ -1054,6 +1066,7 @@ sciflow.ui.dialogs.deleteBibliography = $(sciflow.ui.dialogs.deletionConfirmatio
         sciflow.deleteElements('bibliography', listOfElements, sciflow.bibliography.widget, function()
         {
           thisDialog.dialog('close');
+          pad.collabClient.sendMessage({type:'DATASTORE_UPDATE'});
         });
       },
     }
@@ -1232,6 +1245,7 @@ sciflow.ui.dialogs.addGraphic = $(sciflow.ui.dialogs.graphicDialogTemplate).dial
         sciflow.addElement('graphics', dialogContent, null, sciflow.graphics.widget, sciflow.graphics.listItemHtmlGenerator, function()
         {
           thisDialog.dialog('close');
+          pad.collabClient.sendMessage({type:'DATASTORE_UPDATE'});
         });
       },
     }
@@ -1260,6 +1274,7 @@ sciflow.ui.dialogs.changeGraphic = $(sciflow.ui.dialogs.graphicDialogTemplate).d
         sciflow.addElement('graphics', dialogContent, elementId, sciflow.graphics.widget, sciflow.graphics.listItemHtmlGenerator, function()
         {
           thisDialog.dialog('close');
+          pad.collabClient.sendMessage({type:'DATASTORE_UPDATE'});
         });
       },
     }
@@ -1293,6 +1308,7 @@ sciflow.ui.dialogs.deleteGraphic = $(sciflow.ui.dialogs.deletionConfirmationDial
         sciflow.deleteElements('graphics', listOfElements, sciflow.graphics.widget, function()
         {
           thisDialog.dialog('close');
+          pad.collabClient.sendMessage({type:'DATASTORE_UPDATE'});
         });
       },
     }
@@ -1631,7 +1647,7 @@ sciflow.ace_test = function(command)
   sciflow.initializeAllWidgetsFromDatastore();
 
   //poll for changes every 5 seconds
-  //window.setInterval(sciflow.initializeAllWidgetsFromDatastore, 3000);
+  //window.setInterval(sciflow.initializeAllWidgetsFromDatastore, 10000);
 });
 
 function updateUiWidgets()

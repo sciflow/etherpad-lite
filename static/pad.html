@@ -13,9 +13,12 @@
   </script>
   <!-- jQuery and jQuery-UI -->
   <link rel="stylesheet" type="text/css" href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.16/themes/smoothness/jquery-ui.css" />
+  <!-- <link rel="stylesheet" type="text/css" href="/static/sciflow/jqueryui/1.8.16/themes/smoothness/jquery-ui.css" /> -->
   <link rel="stylesheet" type="text/css" href="/static/css/jquery.ui.selectmenu.css" />
-  <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.4/jquery.js"></script>
-  <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.16/jquery-ui.js"></script>
+  <!-- <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.4/jquery.js"></script> -->
+  <script type="text/javascript" src="/static/sciflow/jquery/1.6.4/jquery.js"></script>
+  <!-- <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.16/jquery-ui.js"></script> -->
+  <script type="text/javascript" src="/static/sciflow/jqueryui/1.8.16/jquery-ui.js"></script>
   <script type="text/javascript" src="/static/js/jquery.ui.selectmenu.js"></script>
   <!-- sciflow  -->
   <script src="../static/js/sciflow.js"></script>
@@ -294,12 +297,17 @@
           </ul>
         </div>
       </div>
-      <!--
       <h3><a href="#">Chat</a></h3>
-      <div id="chatDiv" title="Dialog">
-      <p>Here comes the chat.</p>
+      <div id="chatbox">
+        <!-- <div id="titlebar"><span id ="titlelabel">Chat</span><a id="titlecross" onClick="chat.hide();return false;">-&nbsp;</a></div> -->
+        <div id="chattext" class="authorColors"></div>
+        <div id="chatinputbox">
+          <form>
+            <input id="chatinput" type="text" maxlength="140"/>
+          </form>
+        </div>
       </div>
-      -->
+      </div>
     </div> <!-- end accordion div -->
   </div>   <!-- end accordion container div -->
 </div>     <!-- end widget container div -->
