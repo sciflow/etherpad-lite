@@ -265,6 +265,10 @@ function handshake()
         socket.disconnect();
         return;
       }
+      else if(typeof(obj.data) === 'object' && typeof(obj.data.type) === 'string' && obj.data.type === 'DATASTORE_UPDATE')
+      {
+        sciflow.initializeAllWidgetsFromDatastore();
+      }
       else
       {
         pad.collabClient.handleMessageFromServer(obj);

@@ -824,11 +824,13 @@ ul#colorpickerswatches li:hover
 
 #chatbox
 {
+  /*
   position:absolute;
   bottom:0px;
   right: 20px;
   width: 180px;
   height: 200px;
+  */
   z-index: 400;
   background-color:#f7f7f7;
   border-left: 1px solid #999;

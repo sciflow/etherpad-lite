@@ -1,6 +1,12 @@
-.ui-dialog #adress {
+.ui-dialog #address {
   width: 95%;
   height: 55px;
+  padding: .4em;
+}
+
+.ui-dialog #abstract textarea {
+  width: 95%;
+  height: 320px;
   padding: .4em;
 }
 
