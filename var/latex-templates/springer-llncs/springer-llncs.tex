@@ -24,11 +24,10 @@
 \usepackage[utf8]{inputenc}
 \usepackage{url}
 \usepackage{blindtext}
-\usepackage[english]{babel}
+\usepackage[german]{babel}
 \usepackage{todonotes}
 \usepackage{booktabs}
 \usepackage{subfig}
-
 
 \makeatletter
 \define@key{Gin}{Trim}
@@ -37,13 +36,14 @@
 
 \newtoks\TrimVal
 
+\input{pad.metaInformations}
 
 \begin{document}
 
 \mainmatter  % start of an individual contribution
 
 % first the title is needed
-\title{title placeholder}
+\title{\sciflowTitle}
 % a short form should be given in case it is too long for the running head
 %\titlerunning{Awareness}
 
@@ -54,20 +54,21 @@
 % the running heads and the author index.
 %
 %\author{Wolfgang Reinhardt \and Christian Mletzko}
-\author{author one \and author two}
+%\author{author one \and author two}
+
+\author{}
 
 %\institute{University of Paderborn\\Department of Computer Science, Computer Science Education Group\\ Fuerstenallee 11, 33102 Paderborn, Germany\\                        
 %\email{\{wolle,letris\}@upb.de}}
 
-\institute{institute placeholder\\
-\email{emails}}
+%\institute{institute placeholder\\
+%\email{emails}}
 
 \maketitle
 
 \begin{abstract}
-\blindtext 
-
-\keywords{comma-separated, keywords}
+\sciflowAbstract
+%\keywords{comma-separated, keywords}
 \end{abstract}
 
 
@@ -76,7 +77,7 @@
 
 \nocite{*}
 \bibliographystyle{plain}
-%\bibliography{bib/literatur}
+\bibliography{pad}
 
 
 \end{document}

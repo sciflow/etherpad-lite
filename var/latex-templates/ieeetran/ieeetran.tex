@@ -351,34 +351,52 @@
 \usepackage[utf8]{inputenc}
 \usepackage{graphicx}
 
+\input{pad.metaInformations}
+
 \begin{document}
 %
 % paper title
 % can use linebreaks \\ within to get better formatting as desired
-\title{Ersetze diesen Titel}
-
+\title{\sciflowTitle}
 
 % author names and affiliations
 % use a multiple column layout for up to three different
 % affiliations
-\author{}
+\newcounter{sciflowAuthorsIndex}
+\setcounter{sciflowAuthorsIndex}{0}
 
-\author{\IEEEauthorblockN{Michael Shell}
-\IEEEauthorblockA{School of Electrical and\\Computer Engineering\\
-Georgia Institute of Technology\\
-Atlanta, Georgia 30332--0250\\
-Email: http://www.michaelshell.org/contact.html}
-\and
-\IEEEauthorblockN{Homer Simpson}
-\IEEEauthorblockA{Twentieth Century Fox\\
-Springfield, USA\\
-Email: homer@thesimpsons.com}
-\and
-\IEEEauthorblockN{James Kirk\\ and Montgomery Scott}
-\IEEEauthorblockA{Starfleet Academy\\
-San Francisco, California 96678-2391\\
-Telephone: (800) 555--1212\\
-Fax: (888) 555--1212}}
+\author{%
+  \whiledo {\value{sciflowAuthorsIndex} < \value{sciflowNumberOfAuthors}}%
+  {%
+    \IEEEauthorblockN{%
+      \sciflowAuthor{\value{sciflowAuthorsIndex}}{name}%
+    }%
+    \IEEEauthorblockA{%
+      \sciflowAuthor{\value{sciflowAuthorsIndex}}{organization}\\%
+      \sciflowAuthor{\value{sciflowAuthorsIndex}}{address}\\%
+      \sciflowAuthor{\value{sciflowAuthorsIndex}}{email}%
+    }%
+    \and%
+    \addtocounter{sciflowAuthorsIndex}{1}%
+  }%
+}
+
+%\author{\IEEEauthorblockN{Michael Shell}
+%\IEEEauthorblockA{School of Electrical and\\Computer Engineering\\
+%Georgia Institute of Technology\\
+%Atlanta, Georgia 30332--0250\\
+%Email: http://www.michaelshell.org/contact.html}
+%\and
+%\IEEEauthorblockN{Homer Simpson}
+%\IEEEauthorblockA{Twentieth Century Fox\\
+%Springfield, USA\\
+%Email: homer@thesimpsons.com}
+%\and
+%\IEEEauthorblockN{James Kirk\\ and Montgomery Scott}
+%\IEEEauthorblockA{Starfleet Academy\\
+%San Francisco, California 96678-2391\\
+%Telephone: (800) 555--1212\\
+%Fax: (888) 555--1212}}
 
 % conference papers do not typically use \thanks and this command
 % is locked out in conference mode. If really needed, such as for
@@ -417,7 +435,7 @@ Fax: (888) 555--1212}}
 
 \begin{abstract}
 %\boldmath
-\blindtext
+\sciflowAbstract
 \end{abstract}
 % IEEEtran.cls defaults to using nonbold math in the Abstract.
 % This preserves the distinction between vectors and scalars. However,
@@ -537,10 +555,10 @@ Fax: (888) 555--1212}}
 
 
 % use section* for acknowledgement
-\section*{Acknowledgment}
+%\section*{Acknowledgment}
 
 
-The authors would like to thank...
+%The authors would like to thank...
 
 
 
@@ -564,7 +582,7 @@ The authors would like to thank...
 \nocite{*}
 \bibliographystyle{IEEEtran}
 % argument is your BibTeX string definitions and bibliography database(s)
-%\bibliography{bib/literatur}
+\bibliography{pad}
 %
 % <OR> manually copy in the resultant .bbl file
 % set second argument of \begin to the number of references
