@@ -107,11 +107,11 @@ function generateExportTags(attributeName, attributeValue, tagType, padId)
     return (tagType === 'openTag') ? '\\bullet7{'                                                                    : '}';
   else if (attributeName === 'list' &&  attributeValue === 'bullet8')
     return (tagType === 'openTag') ? '\\bullet8{'                                                                    : '}';
-  else if (attributeName === 'sciflow-heading1')      return (tagType === 'openTag') ? '\\chapter{'                          : '}\n';
-  else if (attributeName === 'sciflow-heading2')      return (tagType === 'openTag') ? '\\section{'                          : '}\n';
-  else if (attributeName === 'sciflow-heading3')      return (tagType === 'openTag') ? '\\subsection{'                       : '}\n';
-  else if (attributeName === 'sciflow-heading4')      return (tagType === 'openTag') ? '\\subsubsection{'                    : '}\n';
-  else if (attributeName === 'sciflow-heading5')      return (tagType === 'openTag') ? '\\paragraph{'                        : '}\n';
+  else if (attributeName === 'sciflow-heading1')      return (tagType === 'openTag') ? '\\section{'                          : '}\n';
+  else if (attributeName === 'sciflow-heading2')      return (tagType === 'openTag') ? '\\subsection{'                          : '}\n';
+  else if (attributeName === 'sciflow-heading3')      return (tagType === 'openTag') ? '\\subsubsection{'                       : '}\n';
+  else if (attributeName === 'sciflow-heading4')      return (tagType === 'openTag') ? '\\paragraph{'                    : '}\n';
+  else if (attributeName === 'sciflow-heading5')      return (tagType === 'openTag') ? '\\subparagraph{'                        : '}\n';
   else if (attributeName === 'sciflow-heading6')      return (tagType === 'openTag') ? '\\subparagraph{'                     : '}\n';
   //graphics
   else if(attributeName.search(/sciflow-graphic:/) >= 0)
@@ -152,7 +152,7 @@ function generateExportTags(attributeName, attributeValue, tagType, padId)
   {
     var elementId = attributeName.match(/sciflow-cite:(\S+)/)[1];
 
-    var openTag = '\\ref{' + elementId + '}\n' + leftoverDataOpenTag;
+    var openTag = '\\cite{' + elementId + '}\n' + leftoverDataOpenTag;
     var closeTag = leftoverDataCloseTag;
 
     return (tagType === 'openTag') ? openTag : closeTag;

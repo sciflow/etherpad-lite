@@ -5,7 +5,8 @@
   <title>PDF View</title>
 
   <script type="text/javascript" src="/static/js/pdfobject.min.js"></script>
-  <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.4/jquery.min.js"></script>
+  <!-- <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.4/jquery.min.js"></script> -->
+  <script type="text/javascript" src="/static/sciflow/jquery/1.6.4/jquery.min.js"></script>
 
   <script type="text/javascript">
     var queryParameters = {};
@@ -54,6 +55,7 @@
 
         $('#statusIcon').attr('src','/static/img/refresh_32.png');
         $('#statusText').html('Sie betrachten nicht die aktuelle Revision. (<a href="' + anchorLink + '">Aktualisieren</a>)');
+        $('#statusLeiste').css('background-color', 'red');
       }
 
       //do this again in 5 seconds
@@ -67,7 +69,7 @@
   </script>
 </head>
 <body style="margin:0px">
-  <div id="statusLeiste" style="height: 32px; position:relative; margin:0.3em">
+  <div id="statusLeiste" style="height: 32px; position:relative; padding:0.3emi; background-color:lightGreen">
     <div>
       <img id="statusIcon" src="/static/img/tick_32.png" height="32px" width="30px"/>
     </div>
