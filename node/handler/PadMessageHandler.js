@@ -190,11 +190,56 @@ exports.handleMessage = function(client, message)
   {
     handleSuggestUserName(client, message);
   }
+  else if(message.type == "COLLABROOM" &&
+          message.data.type == "DATASTORE_UPDATE")
+  {
+    handleDatastoreUpdate(client, message);
+  }
   //if the message type is unkown, throw an exception
   else
   {
     messageLogger.warn("Droped message, unkown Message Type " + message.type);
   }
+}
+
+function handleDatastoreUpdate(client, message)
+{
+  var padId = session2pad[client.id];
+
+  var pad;
+
+  async.series([
+    //get the pad
+    function(callback)
+    {
+      padManager.getPad(padId, function(err, _pad)
+      {
+        pad = _pad;
+        callback(err);
+      });
+    },
+    //save the chat message and broadcast it
+    function(callback)
+    {
+      var msg = {
+        type: "COLLABROOM",
+        data: {
+                type: "DATASTORE_UPDATE",
+              }
+      };
+
+      //broadcast the chat message to everyone on the pad
+      for(var i in pad2sessions[padId])
+      {
+        socketio.sockets.sockets[pad2sessions[padId][i]].json.send(msg);
+      }
+
+      callback();
+    }
+  ], function(err)
+  {
+    if(err) throw err;
+  });
 }
 
 /**

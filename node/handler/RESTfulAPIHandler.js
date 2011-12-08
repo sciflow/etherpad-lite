@@ -372,79 +372,256 @@ function exportPadRevision(req, res, handleResult)
             var includegraphicsStatements = padLatex.match(/\\includegraphics\[.*\]\{.+\s*\}/g);
             var graphicsDirectory = path.normalize(exportDirectory + '/../../');
 
-            async.forEach(includegraphicsStatements, function(statement, callback)
+            if(includegraphicsStatements !== null)
             {
-              var graphicUrl = statement.replace(/\\includegraphics\[.*\]\{/, '').replace(/\s*\}.*$/, '');;
-              
-              //tha path is constructed by the graphics directory and the filename part of the url
-              var graphicPath = graphicsDirectory + graphicUrl.match(/([^\/]+)$/)[1]; 
- 
-              //load images only if they are not present
-              fs.stat(graphicPath, function(err, stats)
+              async.forEach(includegraphicsStatements, function(statement, callback)
               {
-                //if there was somekind of an error, than we need to load the graphic
-                if(typeof(err) !== 'undefined' && err !== null)
+                var graphicUrl = statement.replace(/\\includegraphics\[.*\]\{/, '').replace(/\s*\}.*$/, '');;
+                
+                //tha path is constructed by the graphics directory and the filename part of the url
+                var graphicPath = graphicsDirectory + graphicUrl.match(/([^\/]+)$/)[1]; 
+   
+                //load images only if they are not present
+                fs.stat(graphicPath, function(err, stats)
                 {
-                  child_process.spawn('curl', ['-s', '-O', graphicUrl ], { cwd : graphicsDirectory }).on('exit', function (returnCode)
+                  //if there was somekind of an error, than we need to load the graphic
+                  if(typeof(err) !== 'undefined' && err !== null)
                   {
-                    //duplicated code !!!
+                    child_process.spawn('curl', ['-s', '-O', graphicUrl ], { cwd : graphicsDirectory }).on('exit', function (returnCode)
+                    {
+                      //duplicated code !!!
+                      padLatex = padLatex.replace(statement, statement.replace(/\{.*\}/, '{../../' + graphicUrl.match(/([^\/]+)$/)[1] + '}'));
+                      callback(null);
+                    });
+                  }
+                  else
+                  {
+                    //new replace the url with the local path in padLatex
                     padLatex = padLatex.replace(statement, statement.replace(/\{.*\}/, '{../../' + graphicUrl.match(/([^\/]+)$/)[1] + '}'));
                     callback(null);
-                  });
-                }
-                else
-                {
-                  //new replace the url with the local path in padLatex
-                  padLatex = padLatex.replace(statement, statement.replace(/\{.*\}/, '{../../' + graphicUrl.match(/([^\/]+)$/)[1] + '}'));
-                  callback(null);
-                }
-              });
-            },
-            function(err)
-            {
-              callback(null, padLatex);
-            });
-          },
-          //get pad metaInformations
-          function(padLatex, callback)
-          {
-            var padMetaInformations = {};
-
-            //get pad metaInformations
-            db.get("pad:" + padId + ":datastores:metaInformations", function(err, listOfElements)
-            {
-              async.forEach(listOfElements, function(elementId, callback)
-              {
-                db.get("pad:" + padId + ":datastores:metaInformations:" + elementId, function(err, elementData)
-                {
-                  padMetaInformations[elementId] = elementData;
-                  callback(err);
+                  }
                 });
               },
               function(err)
               {
-                //if there is no template, take ieeetran
-                padMetaInformations['latex-template'] = (typeof(padMetaInformations['latex-template']) === 'undefined') ? { templateId : 'ieeetran' } : padMetaInformations['latex-template'];
-
-                callback(err, padLatex, padMetaInformations);
+                callback(null, padLatex);
               });
+            }
+            else
+              callback(null, padLatex);
+          },
+          //get pad datastores (graphics and bibliography)
+          function(padLatex, callback)
+          {
+        
+            var padMetaInformations = {};
+            var padBibliography = {};
+
+            async.parallel([
+              function(callback)
+              {
+                //get pad metaInformations
+                db.get("pad:" + padId + ":datastores:metaInformations", function(err, listOfElements)
+                {
+                  if(typeof(listOfElements) === 'object')
+                  {
+                    async.forEach(listOfElements, function(elementId, callback)
+                    {
+                      db.get("pad:" + padId + ":datastores:metaInformations:" + elementId, function(err, elementData)
+                      {
+                        padMetaInformations[elementId] = elementData;
+                        callback(err);
+                      });
+                    },
+                    function(err)
+                    {
+                      //if there is no template, take ieeetran
+                      padMetaInformations['latex-template'] = (typeof(padMetaInformations['latex-template']) === 'undefined') ? { templateId : 'ieeetran' } : padMetaInformations['latex-template'];
+
+                      callback(null);
+                    });
+                  }
+                  else
+                    callback(null);
+                });
+              },
+              function(callback)
+              {
+                //get pad bibliography
+                db.get("pad:" + padId + ":datastores:bibliography", function(err, listOfElements)
+                {
+                  if(typeof(listOfElements) === 'object')
+                  {
+                    async.forEach(listOfElements, function(elementId, callback)
+                    {
+                      db.get("pad:" + padId + ":datastores:bibliography:" + elementId, function(err, elementData)
+                      {
+                        padBibliography[elementId] = elementData;
+                        callback(err);
+                      });
+                    },
+                    function(err)
+                    {
+                      //if there is no template, take ieeetran
+                      callback(null);
+                    });
+                  }
+                  else
+                    callback(null);
+                });
+              }
+            ], function(err)
+            {
+              callback(null, padLatex, padMetaInformations, padBibliography);
+            });
+           
+            /*
+            padMetaInformations = { 'latex-template': { templateId: 'ieeetran' } };
+            padBibliography = {};
+
+            callback(null, padLatex, padMetaInformations, padBibliography);
+            */
+          },
+          //create the bibliography file
+          function(padLatex, padMetaInformations, padBibliography, callback)
+          { 
+            function escapeLatex(str)
+            {
+              var result = str;
+
+              result = result.replace(/\n/g, '\\\\');
+              result = result.replace(/_/g, '\\_');
+
+              return result;
+            }
+            
+            var padBibtex = '';
+
+            //serialize bibliography to bibtex
+            var biliographyEntry;
+
+            for(bibliographyEntry in padBibliography)
+            {
+              var bib = padBibliography[bibliographyEntry];
+
+              padBibtex += '@' + bib.type + '{' + bibliographyEntry + ',\n';
+
+              padBibtex += (bib.authors !== '') ? ' author = {' + escapeLatex(bib.authors) + '},\n' : '';
+              padBibtex += (bib.journal !== '') ? ' journal = {' +  escapeLatex(bib.journal) + '},\n' : '';
+              padBibtex += (bib.month !== '') ? ' month = {' +  escapeLatex(bib.month) + '},\n' : '';
+              padBibtex += (bib.publisher !== '') ? ' publisher = {' +  escapeLatex(bib.publisher) + '},\n' : '';
+              padBibtex += (bib.title !== '') ? ' title = {' +  escapeLatex(bib.title) + '},\n' : '';
+              padBibtex += (bib.url !== '') ? ' url = {' + bib.url + '},\n' : '';
+              padBibtex += (bib.year !== '') ? ' year = {' +  escapeLatex(bib.year) + '},\n' : '';
+              padBibtex += (bib.month !== '') ? ' month = {' + escapeLatex(bib.month) + '},\n' : '';
+              padBibtex += (bib.url !== '') ? ' note = "\\url{' + bib.url + '",\n' : '';
+
+              padBibtex += '}\n\n';
+            }
+
+            fs.writeFile(exportDirectory + '/pad.bib', padBibtex, encoding='utf8', function(err)
+            {
+              callback(null, padLatex, padMetaInformations);
             });
           },
-          //replace meta informations in pad (title, author, etc.)
+          //create pad meta informations file
           function(padLatex, padMetaInformations, callback)
           {
-            /*
-            //padLatex = padLatex.replace(/\\title
-            var metaInformation;
-
-            for(metaInformation in padMetaInformations)
+            function escapeLatex(str)
             {
-              if(padMetaInformations[metaInformation].type = "Title")
-                padLatex = padLatex.replace(/\\title\{[^\}*]}/, '\\title{' + padMetaInformations[metaInformation].title + '}\n');
-            }
-            */
+              var result = str;
 
-            callback(null, padLatex, padMetaInformations);
+              result = result.replace(/\n/g, '\\\\');
+              result = result.replace(/_/g, '\\_');
+
+              return result;
+            }
+
+            var padMeta = '';
+            var padTitle = '';
+            var padAbstract = '';
+            var padAuthors = [];
+
+            if(typeof(padMetaInformations === 'object'))
+            {
+              var metaInformationsEntry;
+
+              for(metaInformationsEntry in padMetaInformations)
+              {
+                var metaInfo = padMetaInformations[metaInformationsEntry];
+                
+                if(typeof(metaInfo.type) === 'string')
+                {
+                  switch(metaInfo.type)
+                  {
+                    case 'Title': padTitle = metaInfo.title; break;
+                    case 'Author': padAuthors.push(metaInfo); break;
+                    case 'Abstract': padAbstract = metaInfo.abstract; break;
+                    default: break;
+                  }
+                }
+              }
+            }
+           
+            //create LaTeX tags out
+            padMeta += '\\usepackage{ifthen}\n';
+            padMeta += '\\newcommand{\\sciflowAbstract}{' + padAbstract + '}\n';
+            padMeta += '\\newcommand{\\sciflowTitle}{' + padTitle + '}\n';
+            padMeta += '\\newcounter{sciflowNumberOfAuthors}\n';
+            padMeta += '\\setcounter{sciflowNumberOfAuthors}{' + padAuthors.length  + '}\n';
+            padMeta += '\n';
+
+            padMeta += '\\newcommand{\\sciflowAuthor}[2]{%\n';
+
+            for(var authorIndex = 0; authorIndex < padAuthors.length; authorIndex++)
+            {
+              padMeta += '\\ifnum#1=' + authorIndex  + '%\n';
+              padMeta += '  \\ifthenelse{\\equal{#2}{name}}{' + ((typeof(padAuthors[authorIndex].name) === 'string') ? escapeLatex(padAuthors[authorIndex].name) : '') + '}{}%\n';
+              padMeta += '  \\ifthenelse{\\equal{#2}{organization}}{' + ((typeof(padAuthors[authorIndex].organization) === 'string') ? escapeLatex(padAuthors[authorIndex].organization) : '') + '}{}%\n';
+              padMeta += '  \\ifthenelse{\\equal{#2}{address}}{' + ((typeof(padAuthors[authorIndex].address) === 'string') ? escapeLatex(padAuthors[authorIndex].address) : '') + '}{}%\n';
+              padMeta += '  \\ifthenelse{\\equal{#2}{email}}{' + ((typeof(padAuthors[authorIndex].email) === 'string') ? escapeLatex(padAuthors[authorIndex].email) : '') + '}{}%\n';
+              padMeta += '  \\ifthenelse{\\equal{#2}{telefon}}{' + ((typeof(padAuthors[authorIndex].telefon) === 'string') ? escapeLatex(padAuthors[authorIndex].telefon) : '') + '}{}%\n';
+              padMeta += '  \\ifthenelse{\\equal{#2}{position}}{' + ((typeof(padAuthors[authorIndex].position) === 'string') ? escapeLatex(padAuthors[authorIndex].position) : '') + '}{}%\n';
+              padMeta += '\\fi%\n';
+            }
+
+            padMeta += '}\n';
+
+            //write
+            fs.writeFile(exportDirectory + '/pad.metaInformations.tex', padMeta, encoding='utf8', function(err)
+            {
+              callback(null, padLatex, padMetaInformations);
+            });
+
+/*
+          //create the authors file
+          function(padLatex, padMetaInformations, padBibliography, callback)
+          {
+            var padAuthors = '';
+
+            //serialize bibliography to bibtex
+            var authorsEntry;
+
+            for(authorsEntry in padBibliography)
+            {
+              var bib = padBibliography[bibliographyEntry];
+
+              padBibtex += '@' + bib.type + '{' + bibliographyEntry + ',\n';
+
+              padBibtex += (bib.authors !== '') ? '  author  = {' + bib.authors + '},\n' : '';
+              padBibtex += (bib.title !== '') ? '  title  = {' + bib.title + '},\n' : '';
+              padBibtex += (bib.year !== '') ? '  year  = {' + bib.year + '},\n' : '';
+
+              padBibtex += '}\n\n';
+            }
+
+            fs.writeFile(exportDirectory + '/pad.bib', padBibtex, encoding='utf8', function(err)
+            {
+              callback(null, padLatex, padMetaInformations);
+            });
+
+            //callback(null, padLatex, padMetaInformations);
+*/
           },
           //write the latex source to a file
           function(padLatex, padMetaInformations, callback)
@@ -457,6 +634,13 @@ function exportPadRevision(req, res, handleResult)
           //symlink the template files into the export directory
           function(padMetaInformations, callback)
           {
+            //handle the case where there is no templateId set yet
+            if(typeof(padMetaInformations['latex-template']) === 'undefined' || padMetaInformations['latex-template'] === null)
+              padMetaInformations['latex-template'] = {};
+
+            if(typeof(padMetaInformations['latex-template'].templateId) === 'undefined' || padMetaInformations['latex-template'].templateId === null)
+              padMetaInformations['latex-template'].templateId = 'ieeetran';
+
             fs.readdir(templatesBaseDirectory + '/' + padMetaInformations['latex-template'].templateId, function(err, files)
             {
               async.forEach(files, function(filename, callback)
@@ -488,7 +672,10 @@ function exportPadRevision(req, res, handleResult)
               //if there was somekind of an error, than we need to compile
               if(typeof(err) !== 'undefined' && err !== null)
                compilationNeeded = true;
-              
+             
+              //always compile pdf
+              compilationNeeded = true;
+
               callback(null, padMetaInformations, compilationNeeded)
             });
           },
@@ -497,6 +684,7 @@ function exportPadRevision(req, res, handleResult)
           {
             var latexFileName = padMetaInformations['latex-template'].templateId + '.tex';
             var pdflatexParameters = ['-no-file-line-error', '-interaction=batchmode', latexFileName];
+            var bibtexParameters = [ padMetaInformations['latex-template'].templateId ];
 
             if(compilationNeeded)
             {
@@ -505,6 +693,14 @@ function exportPadRevision(req, res, handleResult)
                 function(callback)
                 {
                   child_process.spawn('pdflatex', ['-draftmode'].concat(pdflatexParameters), { cwd : exportDirectory }).on('exit', function(returnCode)
+                  {
+                    callback(null)
+                  });
+                },
+                //bibtex run
+                function(callback)
+                {
+                  child_process.spawn('bibtex', bibtexParameters, { cwd : exportDirectory }).on('exit', function(returnCode)
                   {
                     callback(null)
                   });
